@@ -1,0 +1,104 @@
+# =============================================================================
+# HARDWARE -- buses, buzzer, onboard sensors, RTC
+# =============================================================================
+# Pin numbers come from the entry-point substitutions so the same packages can
+# be reused on another board by overriding them with `-s pin_... GPIO...`.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# e-paper SPI bus
+# -----------------------------------------------------------------------------
+spi:
+  id: epaper_spi_bus
+  clk_pin: ${pin_epaper_clk}
+  mosi_pin: ${pin_epaper_mosi}
+  miso_pin: ${pin_epaper_miso}
+
+# -----------------------------------------------------------------------------
+# I2C bus (SHT4x + PCF8563)
+# -----------------------------------------------------------------------------
+i2c:
+  scl: ${pin_i2c_scl}
+  sda: ${pin_i2c_sda}
+  frequency: 100kHz
+  scan: false
+
+# -----------------------------------------------------------------------------
+# Touch feedback buzzer
+# -----------------------------------------------------------------------------
+# Kept `internal: true`: an on-device beeper is not a Home Assistant feature,
+# exposing it only adds clutter to the HA entity list.
+output:
+  - platform: ledc
+    id: buzzer_pwm
+    pin: ${pin_buzzer}
+    frequency: 2000Hz
+
+light:
+  - platform: monochromatic
+    id: ui_buzzer
+    internal: true
+    output: buzzer_pwm
+    default_transition_length: 0s
+
+# -----------------------------------------------------------------------------
+# Onboard SHT4x
+# -----------------------------------------------------------------------------
+sensor:
+  - platform: sht4x
+    id: sht4x_sensor
+    update_interval: ${refresh_env_interval}
+    temperature:
+      id: sht4x_temperature
+      name: "${friendly_name} Temperature"
+      on_value:
+        then:
+          - lambda: |-
+              id(ui_env_dirty) = true;
+          - script.execute: ui_refresh
+    humidity:
+      id: sht4x_humidity
+      name: "${friendly_name} Humidity"
+      on_value:
+        then:
+          - lambda: |-
+              id(ui_env_dirty) = true;
+          - script.execute: ui_refresh
+
+# -----------------------------------------------------------------------------
+# Time: PCF8563 RTC, kept in sync by Home Assistant
+# -----------------------------------------------------------------------------
+time:
+  - platform: pcf8563
+    id: rtc_time
+    address: 0x51
+    update_interval: never
+
+  - platform: homeassistant
+    id: ha_time
+    timezone: ${timezone}
+
+    on_time_sync:
+      then:
+        - pcf8563.write_time:
+        - if:
+            condition:
+              lambda: |-
+                return id(ui_ready);
+            then:
+              - lambda: |-
+                  id(ui_time_dirty) = true;
+              - script.execute: ui_refresh
+
+    on_time:
+      - minutes: '*'
+        seconds: 0
+        then:
+          - if:
+              condition:
+                lambda: |-
+                  return id(ui_ready);
+              then:
+                - lambda: |-
+                    id(ui_time_dirty) = true;
+                - script.execute: ui_refresh

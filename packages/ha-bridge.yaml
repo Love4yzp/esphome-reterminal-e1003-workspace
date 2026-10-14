@@ -1,0 +1,148 @@
+# =============================================================================
+# HA BRIDGE -- the runtime configuration surface
+# =============================================================================
+# This is the layer that lets a user point the panel at a different light,
+# switch or script *without recompiling the firmware*. Every knob below is a
+# plain Home Assistant `text` entity: change it from the HA UI, a dashboard, an
+# automation or a service call and the panel follows on the next refresh.
+#
+#   text.<device>_zone_script_hook     HA action called on every tap
+#                                      empty -> built-in direct mode
+#   text.<device>_clock_message        override the clock card message
+#   text.<device>_main_light_target    entity_id the light card controls
+#   text.<device>_main_light_action    action used by the % presets
+#   text.<device>_main_light_state     card state override ("on"/"off")
+#   text.<device>_main_light_value     card value override ("0".."100")
+#
+# `restore_value: true` means the settings survive reboots and OTA updates.
+# Empty runtime overrides fall back to the compile-time bindings below, which
+# come from the entry-point substitutions (and can be changed at build time
+# with `esphome -s ha_light_entity light.other ...`).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Compile-time bindings (the fallback / zero-setup path)
+# -----------------------------------------------------------------------------
+sensor:
+  - platform: homeassistant
+    id: ha_light_brightness
+    entity_id: ${ha_light_entity}
+    attribute: brightness
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_light_dirty) = true;
+        - script.execute: ui_refresh
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_light_state
+    entity_id: ${ha_light_entity}
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_light_dirty) = true;
+        - script.execute: ui_refresh
+
+# -----------------------------------------------------------------------------
+# Runtime knobs
+# -----------------------------------------------------------------------------
+text:
+  # -- global ------------------------------------------------------------------
+  - platform: template
+    id: cfg_script_hook
+    name: "${friendly_name} Zone script hook"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: ""
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("e1003", "zone hook -> '%s'", x.c_str());
+
+  - platform: template
+    id: cfg_message
+    name: "${friendly_name} Clock message"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: ""
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_time_dirty) = true;
+        - script.execute: ui_refresh
+
+  # -- control: main_light -----------------------------------------------------
+  - platform: template
+    id: cfg_target_main_light
+    name: "${friendly_name} Main light target"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: "${ha_light_entity}"
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_light_dirty) = true;
+        - script.execute: ui_refresh
+
+  - platform: template
+    id: cfg_action_main_light
+    name: "${friendly_name} Main light action"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: "${ha_light_action}"
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_light_dirty) = true;
+
+  - platform: template
+    id: cfg_state_main_light
+    name: "${friendly_name} Main light state override"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 31
+    initial_value: ""
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_light_dirty) = true;
+        - script.execute: ui_refresh
+
+  - platform: template
+    id: cfg_value_main_light
+    name: "${friendly_name} Main light value override"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 31
+    initial_value: ""
+    on_value:
+      then:
+        - lambda: |-
+            id(ui_light_dirty) = true;
+        - script.execute: ui_refresh
+
+# -----------------------------------------------------------------------------
+# Home Assistant callable actions (services.exphome_<device>_<action>)
+# -----------------------------------------------------------------------------
+api:
+  actions:
+    - action: repaint
+      then:
+        - script.execute: ui_repaint
+
+    - action: beep
+      then:
+        - script.execute: ui_beep

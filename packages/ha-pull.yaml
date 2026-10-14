@@ -1,0 +1,112 @@
+# =============================================================================
+# OPTIONAL PACKAGE -- the PULL channel
+# =============================================================================
+# Not part of the default build. Enable it by adding one line to
+# e1003-dashboard.yaml:
+#
+#     packages:
+#       ha_pull: !include packages/ha-pull.yaml
+#
+# There are two ways to make the panel show *arbitrary* Home Assistant state
+# without recompiling the firmware:
+#
+#   PUSH (no extra package)  Home Assistant calls text.set_value on the panel's
+#                            own text entities (see packages/ha-bridge.yaml).
+#                            Event driven, zero polling, cheapest.
+#
+#   PULL (this package)      The panel calls a Home Assistant action and reads
+#                            the JSON it returns (ESPHome `capture_response`).
+#                            Use this when the panel must display something HA
+#                            does not push, or when you would rather keep all
+#                            logic in one HA script.
+#
+# Requirements for PULL: a Home Assistant version that supports ESPHome action
+# responses, plus a script on the HA side that returns a response (see
+# ha/e1003_dashboard.yaml, `script.e1003_snapshot`).
+#
+# Both the action and the Jinja response template are runtime text entities, so
+# what gets pulled is decided from Home Assistant, not from the firmware.
+# =============================================================================
+
+text:
+  - platform: template
+    id: cfg_pull_action
+    name: "${friendly_name} Pull action"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: ""
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("e1003", "pull action -> '%s'", x.c_str());
+
+  - platform: template
+    id: cfg_pull_template
+    name: "${friendly_name} Pull template"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 255
+    initial_value: ""
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("e1003", "pull template -> '%s'", x.c_str());
+
+script:
+  # ---------------------------------------------------------------------------
+  # Ask Home Assistant, then publish whatever came back into the card override
+  # entities. Recognised JSON keys (all optional), consumed in this order:
+  #
+  #   {"message": "...", "state": "on", "value": "57"}
+  #
+  #   message -> clock card message
+  #   state   -> light card state override
+  #   value   -> light card value override (0..100)
+  # ---------------------------------------------------------------------------
+  - id: ha_pull
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return !id(cfg_pull_action).state.empty();
+          then:
+            - homeassistant.action:
+                action: !lambda |-
+                  return id(cfg_pull_action).state;
+                capture_response: true
+                response_template: !lambda |-
+                  return id(cfg_pull_template).state;
+
+                on_success:
+                  - lambda: |-
+                      const auto message = response["message"];
+                      if (!message.isNull()) {
+                        const char *value = message.as<const char *>();
+                        if (value != nullptr) id(cfg_message).publish_state(value);
+                      }
+
+                      const auto state = response["state"];
+                      if (!state.isNull()) {
+                        const char *value = state.as<const char *>();
+                        if (value != nullptr) id(cfg_state_main_light).publish_state(value);
+                      }
+
+                      const auto brightness = response["value"];
+                      if (!brightness.isNull()) {
+                        const char *value = brightness.as<const char *>();
+                        if (value != nullptr) id(cfg_value_main_light).publish_state(value);
+                      }
+
+                on_error:
+                  - lambda: |-
+                      ESP_LOGW("e1003", "pull failed: %s", error.c_str());
+
+# Polling cadence. Raise it if you would rather rely on PUSH for most updates.
+interval:
+  - interval: 5min
+    then:
+      - script.execute: ha_pull

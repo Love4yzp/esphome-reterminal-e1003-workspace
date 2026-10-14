@@ -1,0 +1,82 @@
+# =============================================================================
+# UI STATE -- shared flags + the two UI scripts everything else calls
+# =============================================================================
+# Dirty flags are the *only* way a value reaches the panel:
+#
+#   1. a source sets ui_<part>_dirty = true and calls script ui_refresh
+#   2. ui_refresh debounces (mode: restart) then issues one it8951 partial update
+#   3. the display lambda consumes the flags, repaints those cards, clears them
+#
+# Never call it8951.update directly from a data source -- always go through
+# ui_refresh, or two near-simultaneous sources (temperature + humidity) will
+# cause two panel refreshes instead of one.
+# =============================================================================
+
+globals:
+  - id: ui_ready
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ui_full_redraw
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+
+  - id: ui_time_dirty
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ui_env_dirty
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ui_light_dirty
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+script:
+  # ---------------------------------------------------------------------------
+  # Debounced partial refresh.
+  # `mode: restart` collapses bursts (SHT4x temperature + humidity, a HA state
+  # burst) into a single DU refresh after ${refresh_settle_delay}.
+  # ---------------------------------------------------------------------------
+  - id: ui_refresh
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(ui_ready) && !id(ui_full_redraw);
+          then:
+            - delay: ${refresh_settle_delay}
+            - it8951.update:
+                id: epaper_display
+                mode: ${refresh_partial_mode}
+
+  # ---------------------------------------------------------------------------
+  # Short touch feedback beep. `mode: restart` keeps rapid taps from stacking.
+  # ---------------------------------------------------------------------------
+  - id: ui_beep
+    mode: restart
+    then:
+      - light.turn_on:
+          id: ui_buzzer
+          brightness: ${beep_brightness}
+      - delay: ${beep_duration}
+      - light.turn_off: ui_buzzer
+
+  # ---------------------------------------------------------------------------
+  # Full high-quality repaint (used by the HA `force_redraw` action).
+  # ---------------------------------------------------------------------------
+  - id: ui_repaint
+    mode: restart
+    then:
+      - lambda: |-
+          id(ui_full_redraw) = true;
+      - it8951.update:
+          id: epaper_display
+          mode: ${refresh_boot_mode}

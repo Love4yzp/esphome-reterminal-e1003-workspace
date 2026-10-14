@@ -1,0 +1,13 @@
+# AUTO GENERATED FILE -- DO NOT EDIT
+# source: layout/ui_layout.yaml   tool: tools/layout_to_h.py
+# Canvas size and refresh policy, pulled into the entry-point YAML as a
+# package. ESPHome merges substitutions declared by packages, so the
+# layout file stays the single source of truth for these values.
+substitutions:
+  canvas_width: 1872
+  canvas_height: 1404
+  refresh_boot_mode: GC16
+  refresh_partial_mode: DU
+  refresh_full_update_every: 120
+  refresh_settle_delay: 250ms
+  refresh_env_interval: 60s

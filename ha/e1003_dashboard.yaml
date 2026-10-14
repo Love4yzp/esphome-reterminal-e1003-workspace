@@ -1,0 +1,171 @@
+# =============================================================================
+# Home Assistant package for the reTerminal E1003 e-paper dashboard
+# =============================================================================
+# Drop this file into Home Assistant's `config/packages/` directory (create it
+# and add `homeassistant: packages: !include_dir_named packages` to
+# configuration.yaml if you have not already).
+#
+# Nothing in here is *required*: the panel works out of the box using its
+# built-in direct mode. This file is for when you want Home Assistant to own
+# the button routing, which is what makes every button re-targetable without
+# reflashing the panel.
+#
+# HOW THE HAND-OFF WORKS
+#   1. Set the panel's `Zone script hook` text entity to `script.e1003_zone`.
+#      (text.<device>_zone_script_hook -- check Developer Tools > States for the
+#      exact entity_id, Home Assistant composes it from the device name.)
+#   2. Touch a button. The firmware calls `script.e1003_zone` with
+#        zone       the zone id from layout/ui_layout.yaml, e.g. "light_50"
+#        control    the control id, e.g. "main_light"
+#        data_name  semantic name of the payload, e.g. "brightness_pct"
+#        data_value the payload itself, e.g. "50"
+#   3. `choose:` below decides what actually happens.
+#
+# Editing step 3 is the whole point: change a target, add a condition, call a
+# scene, send a notification -- no firmware rebuild, no OTA.
+#
+# Cleared hook = the firmware falls back to `homeassistant.toggle` on the
+# panel's own `Main light target` text entity.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Where the panel should point. Change these two helpers to re-target every
+# button at once; nothing else in this file needs editing for a simple swap.
+# -----------------------------------------------------------------------------
+input_text:
+  e1003_main_light:
+    name: "E1003 main light target"
+    initial: light.deskside_lamp
+    max: 64
+
+  e1003_message:
+    name: "E1003 clock message" # e.g. a weather summary
+    initial: ""
+    max: 64
+
+# -----------------------------------------------------------------------------
+# Button routing
+# -----------------------------------------------------------------------------
+script:
+  e1003_zone:
+    alias: "E1003 zone press"
+    mode: queued
+    max: 4
+    fields:
+      zone:
+        description: "Zone id from layout/ui_layout.yaml"
+        example: "light_50"
+      control:
+        description: "Control id the zone belongs to"
+        example: "main_light"
+      data_name:
+        description: "Semantic name of the payload"
+        example: "brightness_pct"
+      data_value:
+        description: "Payload value"
+        example: "50"
+    sequence:
+      - variables:
+          target: "{{ states('input_text.e1003_main_light') }}"
+
+      - choose:
+          # ---- the main light is on/off and level --------------------------
+          - conditions:
+              - condition: template
+                value_template: "{{ control == 'main_light' }}"
+            sequence:
+              - choose:
+                  - conditions: "{{ data_name == 'brightness_pct' }}"
+                    sequence:
+                      - action: light.turn_on
+                        target:
+                          entity_id: "{{ target }}"
+                        data:
+                          brightness_pct: "{{ data_value | int }}"
+                default:
+                  - action: homeassistant.toggle
+                    target:
+                      entity_id: "{{ target }}"
+
+        # ---- anything else: extend here ------------------------------------
+        # - conditions:
+        #     - condition: template
+        #       value_template: "{{ zone == 'scene_evening' }}"
+        #   sequence:
+        #     - action: scene.turn_on
+        #       target:
+        #         entity_id: scene.evening
+
+        default:
+          - action: persistent_notification.create
+            data:
+              title: "E1003 unmapped button"
+              message: "zone={{ zone }} control={{ control }} data={{ data_name }}={{ data_value }}"
+
+# -----------------------------------------------------------------------------
+# Snapshot, for the optional PULL package (packages/ha-pull.yaml)
+# -----------------------------------------------------------------------------
+# Returns the JSON the panel parses. Enable it with:
+#   - set the panel's `Pull action` entity to script.e1003_snapshot
+#   - set the panel's `Pull template` entity to the Jinja below
+#       {"message": "{{ states('sensor.outdoor_temperature') }}°C",
+#        "state": "{{ states('light.deskside_lamp') }}",
+#        "value": "{{ (state_attr('light.deskside_lamp','brightness') or 0) / 2.55 | round(0) }}"}
+#   - add `ha_pull: !include packages/ha-pull.yaml` to the firmware packages
+# The Jinja lives in a text entity on the panel, so the query itself is
+# reconfigurable without reflashing.
+# -----------------------------------------------------------------------------
+  e1003_snapshot:
+    alias: "E1003 snapshot"
+    mode: single
+    sequence:
+      - variables:
+          target: "{{ states('input_text.e1003_main_light') }}"
+      - stop: ""
+        response_variable: snapshot
+      - variables:
+          value: >-
+            {{ (state_attr(target, 'brightness') or 0) / 2.55 | round(0) | int }}
+
+# -----------------------------------------------------------------------------
+# Optional: keep the panel's light card in sync with the runtime target.
+# Without this the card falls back to the compile-time binding baked into the
+# firmware (`ha_light_entity`), which is fine until you re-target at runtime.
+#
+# Replace the two `text.` entity ids with the ones Home Assistant actually
+# created (Developer Tools > States, search for "main_light").
+# -----------------------------------------------------------------------------
+automation:
+  - alias: "E1003 light card follows the configured target"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: input_text.e1003_main_light
+      - trigger: state
+        entity_id:
+          - light.deskside_lamp
+    actions:
+      - variables:
+          target: "{{ states('input_text.e1003_main_light') }}"
+      - action: text.set_value
+        target:
+          entity_id: text.e1003_smart_workspace_main_light_state_override
+        data:
+          value: "{{ states(target) }}"
+      - action: text.set_value
+        target:
+          entity_id: text.e1003_smart_workspace_main_light_value_override
+        data:
+          value: >-
+            {{ (state_attr(target, 'brightness') or 0) / 2.55 | round(0) | int }}
+
+  - alias: "E1003 clock message from the helper"
+    triggers:
+      - trigger: state
+        entity_id: input_text.e1003_message
+    actions:
+      - action: text.set_value
+        target:
+          entity_id: text.e1003_smart_workspace_clock_message
+        data:
+          value: "{{ states('input_text.e1003_message') }}"

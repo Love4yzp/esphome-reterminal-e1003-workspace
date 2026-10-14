@@ -1,5 +1,8 @@
-# Gitignore settings for ESPHome
-# This is an example and may include too much for your use-case.
-# You can modify this file to suit your needs.
+# ESPHome build cache -- regenerated on the next compile
 /.esphome/
+
+# Local secrets: Wi-Fi, AP hotspot password, API encryption key
 /secrets.yaml
+
+# Python bytecode from the tools/ generators
+__pycache__/

@@ -1,0 +1,18 @@
+# AUTO GENERATED FILE -- DO NOT EDIT
+# source: layout/ui_layout.yaml   tool: tools/layout_to_h.py
+font:
+  - file: ${font_regular}
+    id: font_tiny
+    size: 20
+
+  - file: ${font_bold}
+    id: font_medium
+    size: 36
+
+  - file: ${font_bold}
+    id: font_large
+    size: 48
+
+  - file: ${font_bold}
+    id: font_number
+    size: 110

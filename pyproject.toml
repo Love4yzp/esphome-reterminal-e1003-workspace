@@ -1,0 +1,23 @@
+[project]
+name = "esphome-reterminal-e1003-workspace"
+version = "0.1.0"
+description = "ESPHome firmware for the reTerminal E1003 e-paper dashboard"
+readme = "README.md"
+authors = [
+    { name = "Spencer", email = "love4yzp@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "esphome==2026.9.1",
+]
+
+[dependency-groups]
+dev = [
+    "pillow>=11.0",
+    "pyyaml>=6.0",
+]
+
+# This project is an ESPHome firmware configuration, not a Python library:
+# nothing gets built or installed, `uv` only manages the pinned toolchain.
+[tool.uv]
+package = false

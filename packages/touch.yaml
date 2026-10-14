@@ -1,0 +1,144 @@
+# =============================================================================
+# TOUCH -- GT911 + generic zone dispatch
+# =============================================================================
+# There is no per-button `if` chain here. The hit boxes live in
+# layout/ui_layout.yaml and are compiled into a data table, so this file stays
+# identical no matter how many buttons the design has.
+#
+# Coordinate space: the E1003 reports X mirrored against the visual UI, so the
+# firmware converts with `x = <canvas width> - touch.x` before comparing.
+# The numeric areas in the layout file are expressed in that same converted
+# space -- change them only with the panel in front of you.
+# =============================================================================
+
+touchscreen:
+  - platform: gt911
+    id: e1003_touch
+    display: epaper_display
+    interrupt_pin: ${pin_touch_int}
+    reset_pin: ${pin_touch_rst}
+
+    transform:
+      mirror_x: true
+
+    on_touch:
+      - lambda: |-
+          const int x = ${canvas_width} - touch.x;
+          const int y = touch.y;
+
+          // Which runtime text entities hold the target/action for each
+          // control declared in layout/ui_layout.yaml `runtime.controls`.
+          struct Binding {
+            const char *id;
+            esphome::text::Text *target;
+            esphome::text::Text *action;
+          };
+          static const Binding BINDINGS[] = {
+            {"main_light", id(cfg_target_main_light), id(cfg_action_main_light)},
+          };
+
+          for (const auto &zone : e1003::ZONES) {
+            if (x < zone.area.x1 || x > zone.area.x2) continue;
+            if (y < zone.area.y1 || y > zone.area.y2) continue;
+
+            std::string target;
+            std::string action;
+            if (zone.control != nullptr) {
+              for (const auto &binding : BINDINGS) {
+                if (strcmp(zone.control, binding.id) == 0) {
+                  target = binding.target->state;
+                  action = binding.action->state;
+                  break;
+                }
+              }
+            }
+
+            ESP_LOGD("e1003", "zone '%s' op=%d target='%s'", zone.id,
+                     (int) zone.op, target.c_str());
+
+            id(zone_dispatch)->execute(
+                std::string(zone.id),
+                zone.control != nullptr ? std::string(zone.control) : std::string(),
+                target,
+                action,
+                (int) zone.op,
+                zone.data_key != nullptr ? std::string(zone.data_key) : std::string(),
+                zone.data_value != nullptr ? std::string(zone.data_value) : std::string());
+            return;
+          }
+
+# =============================================================================
+# ZONE DISPATCH
+# =============================================================================
+# Two mutually exclusive routing modes:
+#
+#   hook set   (text.cfg_script_hook) -> Home Assistant owns the routing.
+#              The firmware calls that action with
+#              {zone, control, data_key, data_value} and does nothing else.
+#   hook empty                        -> built-in direct mode.
+#              `toggle` zones call homeassistant.toggle on the runtime target,
+#              `call` zones call the runtime action with brightness_pct.
+#
+# The hook is a normal text entity, so switching modes is a Home Assistant
+# service call -- no recompile, no reboot.
+# =============================================================================
+
+script:
+  - id: zone_dispatch
+    mode: queued
+    max_runs: 4
+    parameters:
+      zone_id: string
+      control: string
+      target: string
+      action: string
+      op: int
+      data_name: string
+      data_value: string
+    then:
+      - script.execute: ui_beep
+
+      - if:
+          condition:
+            lambda: |-
+              return !id(cfg_script_hook).state.empty();
+          then:
+            - homeassistant.action:
+                action: !lambda |-
+                  return id(cfg_script_hook).state;
+                data_template:
+                  zone: !lambda |-
+                    return zone_id;
+                  control: !lambda |-
+                    return control;
+                  data_name: !lambda |-
+                    return data_name;
+                  data_value: !lambda |-
+                    return data_value;
+
+          else:
+            # op 0 = toggle, op 1 = call with brightness_pct
+            - if:
+                condition:
+                  lambda: |-
+                    return op == 0 && !target.empty();
+                then:
+                  - homeassistant.action:
+                      action: homeassistant.toggle
+                      data_template:
+                        entity_id: !lambda |-
+                          return target;
+
+            - if:
+                condition:
+                  lambda: |-
+                    return op == 1 && !target.empty() && !action.empty();
+                then:
+                  - homeassistant.action:
+                      action: !lambda |-
+                        return action;
+                      data_template:
+                        entity_id: !lambda |-
+                          return target;
+                        brightness_pct: !lambda |-
+                          return data_value;

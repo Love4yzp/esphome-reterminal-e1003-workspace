@@ -1,86 +1,133 @@
-# CLAUDE.md — AI 适配指南
+# CLAUDE.md — AI adaptation guide
 
-本文件写给即将接手本仓库的 AI 代理(如 Claude Code)。目标:让 AI 无需追问即可理解项目语义,并把"E1003 智能屏展示"平移到**任意新场景**(新 UI、新实体、新交互)。
+Read this before changing anything. It encodes the rules that keep this project
+from rotting back into a pile of hardcoded numbers.
 
-## 1. 项目是什么
+## 1. What this project is
 
-ESPHome 固件项目,跑在 reTerminal E1003 墨水屏(1872×1404,IT8951,16 级灰度)+ XIAO ESP32-S3 上:
+ESPHome firmware for the reTerminal E1003 e-paper panel (1872×1404, IT8951,
+16 gray levels) on a XIAO ESP32-S3:
 
-- **静态 UI** = 设计稿 PNG 转成的位图(4bpp PackBits RLE)
-- **动态部分** = 少量数值叠加(时钟 / SHT4x 温湿度 / HA 灯光亮度),带脏标记局部刷新
-- **交互** = GT911 触摸热区 → 蜂鸣反馈 + 调用 HA 服务
+- **static UI** = one design PNG → 4bpp PackBits-RLE bitmap
+- **dynamic parts** = a few cards (clock, environment, light, footer) with dirty
+  flags and partial `DU` refresh
+- **interaction** = GT911 touch → a *data-driven* zone table → Home Assistant
+  call, plus a buzzer beep
 
-## 2. 运行时数据流
+It is a **dashboard terminal**. It must never learn which light it controls at
+compile time if that can be decided at runtime instead.
 
-```
-设计稿 original.png
-  → tools/png_to_h.py(缩放 1872×1404、转 16 级灰度、WHITE_CLIP、PackBits RLE)
-  → assets/dashboard_static_v4.h(编译期 include)
-  → yaml display(it8951).lambda 解码位图
-      ├ 首次:GC16 全屏刷 = 静态图 + draw_clock / draw_environment / draw_light / draw_last_update
-      └ 之后:仅当 ui_time_dirty / ui_env_dirty / ui_light_dirty 置位时,走 DU 局部刷新
-触摸 → touchscreen(gt911).on_touch → x_ui = 1872 - touch.x(视觉坐标)→ 匹配 if 热区
-      → 蜂鸣(50% 亮度 80ms)→ homeassistant.service 调用
-时间 → PCF8563 RTC(update_interval: never),由 homeassistant time 平台 on_time_sync 写入
-```
+## 2. Iron rules
 
-## 3. 关键文件职责
+1. **No pixel number, font size or hit box inside `packages/`.** They live in
+   `layout/ui_layout.yaml` and reach the code through
+   `layout/generated/ui_layout.h`. If you need a new coordinate, add a field to
+   the layout and re-run `tools/layout_to_h.py`.
+2. **No device-specific hardcoding.** Entity ids, action names and display text
+   are either substitutions in `e1003-dashboard.yaml` or runtime `text` entities
+   in `packages/ha-bridge.yaml`. There is no third option.
+3. **Never call `it8951.update` from a data source.** Set `ui_<card>_dirty` and
+   call `script.execute: ui_refresh` (it debounces; the sensors fire in bursts).
+4. **Every dynamic card follows the three-step contract**: source sets the dirty
+   flag → `ui_refresh` issues the partial update → the display lambda repaints
+   and clears the flag. Missing any step = a card that silently never updates.
+5. **`layout/generated/` is generated.** Never hand-edit it; it will be
+   overwritten. Commit it (so `esphome compile` works without Python) but always
+   change the source layout file.
+6. **Do not touch mirroring.** `x = <canvas width> - touch.x` plus
+   `transform.mirror_x: true` on both display and touchscreen is the combination
+   verified on real hardware. The zone areas are expressed in that converted
+   space.
 
-| 文件 | 职责 | AI 改新场景时关注点 |
-|------|------|---------------------|
-| `*.yaml` | 唯一业务代码:硬件、sensor、touch、display lambda | 绝大多数改动都在这 |
-| `assets/dashboard_static_v4.h` | 静态位图(PackBits RLE,由 `png_to_h.py` 生成) | 换 UI 就重生成它,勿手改 |
-| `tools/png_to_h.py` | PNG → .h;`TARGET_WIDTH/HEIGHT`、`WHITE_CLIP` 可调 | 换图/换分辨率时改 |
-| `secrets.example.yaml` | 密钥模板 | 新环境复制为 `secrets.yaml` |
-| `run_esphome.bat` | Windows 干净 PATH 启动 ESPHome `run/main/compile` 子命令 | 跨平台可绕过 |
+## 3. Layout of the code
 
-## 4. substitutions 目录(改新场景基本只动这里)
+| File | Owns | Change it when |
+|------|------|----------------|
+| `e1003-dashboard.yaml` | identity, pins, fonts, timezone, compile-time HA defaults | new board, new default target |
+| `packages/core.yaml` | ESP32, Wi-Fi, API, OTA, boot paint | boot sequence, network |
+| `packages/hardware.yaml` | SPI/I2C, buzzer, SHT4x, PCF8563 | new sensor or pin |
+| `packages/display.yaml` | IT8951 + the render pass | drawing new content |
+| `packages/ui-state.yaml` | globals, `ui_refresh`/`ui_beep`/`ui_repaint` | new dirty flag |
+| `packages/touch.yaml` | GT911 + zone dispatch + control bindings | new control (not new button!) |
+| `packages/ha-bridge.yaml` | runtime `text` knobs, HA state import, API actions | new runtime knob |
+| `packages/ha-pull.yaml` | optional HA→JSON pull channel | rarely |
+| `layout/ui_layout.yaml` | **all geometry, fonts, zones, controls** | any visual change |
+| `tools/layout_to_h.py` | layout → C++/YAML | new layout feature |
+| `tools/png_to_h.py` | design PNG → RLE bitmap | new artwork |
+| `src/e1003_render.h` | hand-written C++ helpers | new reusable drawing primitive |
+| `ha/e1003_dashboard.yaml` | HA-side routing, examples | HA-facing recipes |
+| `docs/*` | everything a human needs | behaviour change |
 
-| 变量 | 含义 | 新场景怎么改 |
-|------|------|--------------|
-| `device_name` / `friendly_name` | ESPHome 设备名 / HA 显示名 | 换新设备名 |
-| `ha_light_entity` | 灯光卡绑定的 HA 灯实体 | 换成目标灯实体,或整卡删除 |
-| `reachy_*` | Reachy 机器人控制区:服务名 $(`reachy_service`)与各按钮话术 | 换成你自己的 HA 服务/话术;不需要交互式服务可整体删除对应 `touchscreen` 分支 |
+## 4. Recipes
 
-## 5. 适配新场景 checklist
+### Add a touch button (no code change)
 
-### A. 换显示内容
-1. 准备新场景设计稿(建议 4:3 或由脚本等比缩放);
-2. `python tools/png_to_h.py <你的图> assets/dashboard_static_v4.h`(留意 `WHITE_CLIP` 与输出名);
-3. 若目标显示模式下 16 级灰度 / 全程 GC16 不合适,调 `display` 的 `grayscale` / `dithering` / `full_update_every`;
-4. 新增动态叠加区:仿照 `draw_clock` 写 `draw_xxx`,并接好"数据变化 → 置脏 → DU 局部更新"三件套(看第 6 节)。
+Add a `zones:` entry to `layout/ui_layout.yaml` with its `area` and `op`, then
+`uv run python tools/layout_to_h.py`. The dispatch loop picks it up. If the
+button belongs to a new control, also:
 
-### B. 换触摸交互
-- 在 `touchscreen.on_touch` 中仿照现有 `if` 分支增加/删减热区;坐标为**视觉坐标**(已做 `x_ui = 1872 - touch.x`);
-- 把 `homeassistant.service` 换成目标服务与参数;不需要蜂鸣就把 `light.turn_on`(buzzer)段删除。
+1. add the control to `runtime.controls` (four text entity ids),
+2. declare those `text:` entities in `packages/ha-bridge.yaml`,
+3. add **one row** to the `BINDINGS` table in `packages/touch.yaml`.
 
-### C. 换数据源
-- 更多 HA 实体:`sensor` / `text_sensor` 用 `platform: homeassistant` 加,`internal: true` 即可;
-- 叠加进 UI:在 lambda 里新增 `draw_xxx`,在对应 `on_value` 里置对应脏标记。
+Step 3 is unavoidable: ESPHome's `id()` is resolved at compile time, so the
+control-id → text-entity mapping cannot be data.
 
-### D. 移植/换硬件
-- 换主控:改 `esp32` 的 `board`、`psram`;换屏:改 `display` 的 `model`、`spi` 引脚、`transform`、`png_to_h.py` 的 `TARGET_*`;
-- 字体:当前硬编码 Windows 路径 `C:/Windows/Fonts/arial.ttf` / `arialbd.ttf`,跨平台必须换成仓库内字体文件或 `gfonts` 引用;
-- 触摸坐标镜像规则(`1872 - x`)随分辨率变化,换屏务必重算热区。
+### Add a dynamic card
 
-### E. 构建与烧录
+1. `cards:` entry in the layout (clear rect, anchor, align, font, format).
+2. `ui_<card>_dirty` global in `packages/ui-state.yaml`.
+3. `draw_<card>()` in the `display.yaml` lambda, using only
+   `e1003::<CONSTANT>` names.
+4. Call it from both the full-redraw and the partial path, and clear the flag.
+
+### Make something runtime-configurable
+
+1. Add a `text:` entity in `packages/ha-bridge.yaml` (id `cfg_<thing>`,
+   `optimistic: true`, `restore_value: true`, sane `initial_value`).
+2. Reference it from `layout/ui_layout.yaml` (`runtime:` section) so the
+   generator validates that it exists.
+3. Consume it in the lambda with a **fallback**: empty override = previous
+   compile-time behaviour. Never make an empty entity mean "show nothing".
+4. Document it in `docs/configuration.md`'s entity table.
+
+### Swap the artwork
+
+`uv run python tools/png_to_h.py assets/original.png assets/dashboard_static_v4.h`
+then re-check every zone area on the panel — the numbers are not derivable from
+the PNG.
+
+## 5. Build and verify
+
 ```bash
-run_esphome.bat compile  esphome-reterminal-e1003-workspace-v4.yaml   # 验证编译
-run_esphome.bat run       esphome-reterminal-e1003-workspace-v4.yaml   # 串口烧录 + 看日志
-# 生成 API 加密密钥(填到 secrets.yaml):
-#   python -c "import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())"
+uv sync
+scripts/build.sh compile     # regenerates the layout, then compiles
+scripts/build.sh config      # dump the merged config, catches schema damage
 ```
 
-## 6. 常见坑(最容易改错的地方)
+Checklist before claiming a change works:
 
-- **触摸 X 镜像**:原始 `touch.x` 与视觉相反,热区一律在 `x = 1872 - touch.x` 之后比较;
-- **脏标记三件套**:新增动态区域时必须同时准备 (1) 数值来源的 `on_value` 置脏 (2) `interval`/触发处发起 `it8951.update` (3) lambda 里 `draw_*` 消费并把脏位清零——漏了任一环数据不刷新;
-- **DU vs GC16**:纯黑白的时钟/数字适合 DU 快刷;大面积灰度内容(如静态图)用 GC16,首次上电必须全刷;
-- **`.esphome/` 缓存**:改了 yaml 之后旧校验缓存是常见"改了没生效"的来源,可删掉重建;
-- **密钥**:`secrets.yaml` 不入库;AP 热点密码与 OTA 密码用新值;
-- **版本**:ESPHome ≥ 2026.7.0(`substitutions` + IT8951 模式参数依赖新语法)。
+- [ ] `uv run python tools/layout_to_h.py --check` passes
+- [ ] `scripts/build.sh config` reports `Configuration is valid!`
+- [ ] `scripts/build.sh compile` ends with `Successfully compiled program.`
+- [ ] no new compiler warnings
+- [ ] flash/RAM did not regress for no reason (baseline: RAM ≈ 33 %, Flash ≈ 74 %)
+- [ ] every new runtime knob is documented, with its default and its fallback
 
-## 7. 范围外(仓库不提供)
+Hardware behaviour (touch hits the right button, no ghosting) can only be
+verified on a real panel. Say so instead of guessing.
 
-- Home Assistant 侧的 `script.reachy_cmd`(机器人控制脚本)由使用者自行定义;
-- 设计稿制作、HA 集成安装、物理接线。
+## 6. Style
+
+- Comments explain *why*, in the imperative, and stay short. The generated
+  header and the dirty-flag protocol are the only things that need long
+  explanations, and those belong in `docs/architecture.md`.
+- English in code and docs; `README.zh-CN.md` is the Chinese entry point.
+- Keep `packages/*.yaml` declarative. When logic exceeds a screenful, it
+  belongs in `src/*.h` or in a script, not in a lambda.
+
+## 7. Out of scope
+
+- The Home Assistant side is a *sample package*, not a supported integration.
+- No design tooling: the PNG is the design.
+- No MQTT, no web server, no LVGL — the panel is a picture with a few fields.

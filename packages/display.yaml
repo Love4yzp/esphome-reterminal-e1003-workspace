@@ -1,0 +1,228 @@
+# =============================================================================
+# DISPLAY -- IT8951 e-paper panel + the render pass
+# =============================================================================
+# The panel is 1872x1404, 16-level grayscale. The static design is a compressed
+# bitmap; only the cards declared in layout/ui_layout.yaml are repainted.
+#
+# This lambda contains no pixel numbers. Every coordinate, font choice, text
+# alignment and format string comes from the generated header:
+#     layout/generated/ui_layout.h  <-  layout/ui_layout.yaml
+# Regenerate it with:  uv run python tools/layout_to_h.py
+# =============================================================================
+
+# The font list is generated from the layout file's `fonts:` block so that the
+# two can never drift apart.
+packages:
+  fonts: !include ../layout/generated/fonts.yaml
+
+display:
+  - platform: it8951
+    id: epaper_display
+    spi_id: epaper_spi_bus
+    model: ${epaper_model}
+
+    # The render pass is driven by the dirty flags, never by a timer.
+    update_interval: never
+    auto_clear_enabled: false
+
+    grayscale: true
+    dithering: false
+
+    update_mode: ${refresh_boot_mode}
+    full_update_every: ${refresh_full_update_every}
+
+    # The E1003 ribbon is mounted upside down relative to the touch panel.
+    transform:
+      mirror_x: true
+      mirror_y: false
+
+    lambda: |-
+      static const Color BLACK = Color::BLACK;
+      static const Color WHITE = Color::WHITE;
+      const Color G3 = Color(e1003::G3, e1003::G3, e1003::G3);
+
+      // -----------------------------------------------------------------------
+      // helpers
+      // -----------------------------------------------------------------------
+      auto clear = [&](const e1003::Rect &r) {
+        it.filled_rectangle(r.x, r.y, r.w, r.h, WHITE);
+      };
+
+      auto parse_uint = [](const std::string &text) -> int {
+        int value = 0;
+        for (const char c : text) {
+          if (c < '0' || c > '9') break;
+          value = value * 10 + (c - '0');
+          if (value > 1000) break;
+        }
+        return value;
+      };
+
+      // -----------------------------------------------------------------------
+      // the light card: runtime override first, compile-time binding as fallback
+      // -----------------------------------------------------------------------
+      auto light_on = [&]() -> bool {
+        const std::string override_state = id(cfg_state_main_light).state;
+        if (!override_state.empty()) {
+          return override_state == "on";
+        }
+        return id(ha_light_state).has_state() && id(ha_light_state).state == "on";
+      };
+
+      auto light_pct = [&]() -> int {
+        const std::string override_value = id(cfg_value_main_light).state;
+        int value = -1;
+        if (!override_value.empty()) {
+          value = parse_uint(override_value);
+        } else if (id(ha_light_brightness).has_state() && !isnan(id(ha_light_brightness).state)) {
+          value = (int) round(id(ha_light_brightness).state / 255.0f * 100.0f);
+        }
+        if (value < 0) return 0;
+        if (value > 100) return 100;
+        return value;
+      };
+
+      // The clock card message: HA text override, otherwise a local greeting.
+      auto clock_message = [&]() -> std::string {
+        const std::string override_message = id(cfg_message).state;
+        if (!override_message.empty()) {
+          return override_message;
+        }
+        auto now = id(rtc_time).now();
+        if (!now.is_valid()) return "";
+        return now.hour < 12 ? "Good Morning"
+             : now.hour < 18 ? "Good Afternoon"
+                             : "Good Evening";
+      };
+
+      // -----------------------------------------------------------------------
+      // cards
+      // -----------------------------------------------------------------------
+      auto draw_clock = [&]() {
+        clear(e1003::CLOCK_CLEAR);
+
+        auto now = id(rtc_time).now();
+        if (now.is_valid()) {
+          it.strftime(e1003::CLOCK_DATE_ANCHOR.x, e1003::CLOCK_DATE_ANCHOR.y,
+                      id(font_medium), BLACK,
+                      e1003::CLOCK_DATE_ALIGN, e1003::CLOCK_DATE_FORMAT, now);
+
+          it.strftime(e1003::CLOCK_TIME_ANCHOR.x, e1003::CLOCK_TIME_ANCHOR.y,
+                      id(font_number), BLACK,
+                      e1003::CLOCK_TIME_ALIGN, e1003::CLOCK_TIME_FORMAT, now);
+        }
+
+        const std::string message = clock_message();
+        if (!message.empty()) {
+          it.printf(e1003::CLOCK_MESSAGE_ANCHOR.x, e1003::CLOCK_MESSAGE_ANCHOR.y,
+                    id(font_medium), BLACK,
+                    e1003::CLOCK_MESSAGE_ALIGN, "%s", message.c_str());
+        }
+      };
+
+      auto draw_environment = [&]() {
+        clear(e1003::ENV_TEMPERATURE_CLEAR);
+        if (id(sht4x_temperature).has_state()) {
+          it.printf(e1003::ENV_TEMPERATURE_ANCHOR.x, e1003::ENV_TEMPERATURE_ANCHOR.y,
+                    id(font_large), BLACK,
+                    e1003::ENV_TEMPERATURE_ALIGN, e1003::ENV_TEMPERATURE_FORMAT,
+                    id(sht4x_temperature).state);
+        } else {
+          it.printf(e1003::ENV_TEMPERATURE_ANCHOR.x, e1003::ENV_TEMPERATURE_ANCHOR.y,
+                    id(font_large), BLACK,
+                    e1003::ENV_TEMPERATURE_ALIGN, "%s", "--");
+        }
+
+        clear(e1003::ENV_HUMIDITY_CLEAR);
+        if (id(sht4x_humidity).has_state()) {
+          it.printf(e1003::ENV_HUMIDITY_ANCHOR.x, e1003::ENV_HUMIDITY_ANCHOR.y,
+                    id(font_large), BLACK,
+                    e1003::ENV_HUMIDITY_ALIGN, e1003::ENV_HUMIDITY_FORMAT,
+                    id(sht4x_humidity).state);
+        } else {
+          it.printf(e1003::ENV_HUMIDITY_ANCHOR.x, e1003::ENV_HUMIDITY_ANCHOR.y,
+                    id(font_large), BLACK,
+                    e1003::ENV_HUMIDITY_ALIGN, "%s", "--");
+        }
+      };
+
+      auto draw_light = [&]() {
+        const bool on = light_on();
+        const int pct = light_pct();
+
+        clear(e1003::LIGHT_STATE_TEXT_CLEAR);
+        it.printf(e1003::LIGHT_STATE_TEXT_ANCHOR.x, e1003::LIGHT_STATE_TEXT_ANCHOR.y,
+                  id(font_medium), BLACK,
+                  e1003::LIGHT_STATE_TEXT_ALIGN, "%s", on ? "On" : "Off");
+
+        clear(e1003::LIGHT_BUTTON_CLEAR);
+        const e1003::Rect button = e1003::LIGHT_BUTTON_FILL;
+        if (on) {
+          it.filled_rectangle(button.x, button.y, button.w, button.h, BLACK);
+          it.printf(e1003::LIGHT_BUTTON_ANCHOR.x, e1003::LIGHT_BUTTON_ANCHOR.y,
+                    id(font_large), WHITE,
+                    e1003::LIGHT_BUTTON_ALIGN, "%s", "On");
+        } else {
+          it.rectangle(button.x, button.y, button.w, button.h, G3);
+          it.printf(e1003::LIGHT_BUTTON_ANCHOR.x, e1003::LIGHT_BUTTON_ANCHOR.y,
+                    id(font_large), BLACK,
+                    e1003::LIGHT_BUTTON_ALIGN, "%s", "Off");
+        }
+
+        clear(e1003::LIGHT_VALUE_CLEAR);
+        it.printf(e1003::LIGHT_VALUE_ANCHOR.x, e1003::LIGHT_VALUE_ANCHOR.y,
+                  id(font_medium), BLACK,
+                  e1003::LIGHT_VALUE_ALIGN, e1003::LIGHT_VALUE_FORMAT, pct);
+
+        clear(e1003::LIGHT_BAR_CLEAR);
+        const e1003::Rect track = e1003::LIGHT_BAR_TRACK;
+        const int filled = track.w * pct / 100;
+        if (filled > 0) {
+          it.filled_rectangle(track.x, track.y, filled, track.h, BLACK);
+        }
+      };
+
+      auto draw_footer = [&]() {
+        clear(e1003::FOOTER_TIME_CLEAR);
+
+        auto now = id(rtc_time).now();
+        if (now.is_valid()) {
+          it.strftime(e1003::FOOTER_TIME_ANCHOR.x, e1003::FOOTER_TIME_ANCHOR.y,
+                      id(font_tiny), BLACK,
+                      e1003::FOOTER_TIME_ALIGN, e1003::FOOTER_TIME_FORMAT, now);
+        }
+      };
+
+      // -----------------------------------------------------------------------
+      // render pass
+      // -----------------------------------------------------------------------
+      if (id(ui_full_redraw)) {
+        e1003::draw_rle_bitmap(it);
+        draw_clock();
+        draw_environment();
+        draw_light();
+        draw_footer();
+
+        id(ui_full_redraw) = false;
+        id(ui_time_dirty) = false;
+        id(ui_env_dirty) = false;
+        id(ui_light_dirty) = false;
+        return;
+      }
+
+      if (id(ui_time_dirty)) {
+        draw_clock();
+        draw_footer();
+        id(ui_time_dirty) = false;
+      }
+
+      if (id(ui_env_dirty)) {
+        draw_environment();
+        id(ui_env_dirty) = false;
+      }
+
+      if (id(ui_light_dirty)) {
+        draw_light();
+        draw_footer();
+        id(ui_light_dirty) = false;
+      }

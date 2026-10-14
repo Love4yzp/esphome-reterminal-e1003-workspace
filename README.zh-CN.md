@@ -1,67 +1,113 @@
-# E1003 电子墨水屏模板(可复用智能屏模板)
+# reTerminal E1003 墨水屏智能面板(Home Assistant / ESPHome)
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+基于 **reTerminal E1003** 墨水屏(1872×1404、16 级灰度、IT8951)+ **Seeed XIAO
+ESP32-S3** 的 ESPHome 固件模板:设计稿位图作为静态 UI,少量动态卡片单独局部刷新,
+触摸热区调用 Home Assistant。
 
-基于 **reTerminal E1003 电子墨水屏** + **Seeed XIAO ESP32-S3** + **ESPHome / Home Assistant** 的可复用智能屏模板:
-设计稿 PNG 直接转位图作为静态 UI,叠加少量动态数据(时钟、温湿度、HA 实体状态),触摸热区调用 HA 服务。
+整个仓库围绕两个原则:
 
-> 本仓库是**模板**而非成品。下一个场景的用法:把它交给 AI(如 Claude Code),或按 [CLAUDE.md](CLAUDE.md) 的适配清单逐步修改。
+**设计稿是源文件,不是代码。** 屏幕几何、字体、触摸热区统一放在
+[`layout/ui_layout.yaml`](layout/ui_layout.yaml),由 `tools/layout_to_h.py` 编译成
+C++ 头文件。ESPHome 的 packages 里不允许出现任何一个像素数值。
 
-## 特性
+**行为是配置,不是固件。** 按钮控制哪个实体、调用哪个服务、卡片显示什么内容,
+全部是普通的 Home Assistant `text` 实体。换个灯 = 一次服务调用,**不用重编译、不用
+OTA**。
 
-- **静态 UI 由设计稿转位图**(4bpp PackBits RLE),不逐控件手绘
-- **动态叠加 + 脏标记局部刷新**:首次 GC16 全屏刷新,之后按区域 DU 快速刷新,墨水屏成像友好、无鬼影堆叠
-- **GT911 电容触摸**:热区任意配置,点击带蜂鸣反馈
-- SHT4x 温湿度、PCF8563 RTC(HA 授时)
-- 所有业务可变点集中在 yaml 顶部 `substitutions`,无散落硬编码
+[English README](README.md)
 
-## 项目结构
+## 核心特性
+
+- 单张设计稿 → 4bpp PackBits-RLE 位图(约 250 KB),启动一次 `GC16` 全刷
+- 脏标记局部刷新:之后只刷变化的卡片,并用 `ui_refresh` 防抖合并突发更新
+- 触摸热区是**数据表**而不是 `if` 链:加按钮只改 YAML
+- 构建期校验几何:越界、字体缺失、布局引用了不存在的实体 id 都会直接报错
+- 板载 SHT4x 温湿度 + PCF8563 RTC(时间由 HA 校时)
+- 运行时可改的目标实体 / 服务 / 卡片文案,以及可选的 HA 转发脚本
+- 可选 push / pull 通道,显示固件"从没听说过"的实体状态
+- 工具链由 `uv` 管理并锁版本,Linux/macOS/Windows 一套构建脚本
+
+## 目录结构
 
 ```
-esphome-reterminal-e1003-workspace/
-├── esphome-reterminal-e1003-workspace-v4.yaml  # 主配置:显示 / 触摸 / 刷新逻辑 / substitutions
-├── CLAUDE.md                                   # AI 适配指南(交给 AI 前必读)
-├── README.md                                   # 英文版本文档
-├── README.zh-CN.md                             # 本文件(简体中文)
-├── secrets.example.yaml                        # 密钥模板(复制为 secrets.yaml 使用)
-├── secrets.yaml                                # 本机真实密钥,已被 .gitignore 排除
-├── run_esphome.bat                             # Windows 干净环境启动 ESPHome CLI
-├── assets/
-│   ├── original.png                            # 仪表盘设计稿
-│   └── dashboard_static_v4.h                   # 转换后的静态位图头文件
-├── tools/
-│   └── png_to_h.py                             # PNG → C 头文件转换脚本
-└── .esphome/                                   # 构建缓存(可删,不影响)
+e1003-dashboard.yaml            # ← 唯一要烧录的文件(薄薄的 packages 组装)
+├── layout/
+│   ├── ui_layout.yaml          # ← 唯一真源:热区、卡片、字体、调色板、刷新策略
+│   └── generated/              # ← 生成物:ui_layout.h / fonts.yaml / policy.yaml
+├── packages/
+│   ├── core.yaml               # ESP32-S3、Wi-Fi、API、OTA、启动流程
+│   ├── hardware.yaml           # SPI/I2C、蜂鸣器、SHT4x、PCF8563
+│   ├── display.yaml            # IT8951 面板 + 渲染 lambda
+│   ├── ui-state.yaml           # 脏标记 + ui_refresh / ui_beep / ui_repaint
+│   ├── touch.yaml              # GT911 + 通用热区分发
+│   ├── ha-bridge.yaml          # ← 运行时(免重编译)配置层
+│   └── ha-pull.yaml            # 可选:设备反向拉取 HA 的 JSON
+├── src/e1003_render.h          # C++ 辅助函数(RLE 位图解码)
+├── assets/                     # 设计稿 PNG + 生成的位图头文件
+├── tools/                      # png_to_h.py、layout_to_h.py
+├── ha/e1003_dashboard.yaml     # Home Assistant 包:转发脚本 + 示例自动化
+├── docs/                       # 架构 / 配置 / 布局 / HA 集成 / 构建
+└── scripts/                    # build.sh / build.bat / run_esphome.bat
 ```
 
 ## 快速开始
 
 ```bash
-pip install esphome pillow
-cp secrets.example.yaml secrets.yaml    # 填入真实 WiFi / OTA / API 密钥
-python tools/png_to_h.py assets/original.png assets/dashboard_static_v4.h
-run_esphome.bat run esphome-reterminal-e1003-workspace-v4.yaml
+uv sync                                        # 按 uv.lock 装工具链
+cp secrets.example.yaml secrets.yaml           # Wi-Fi、回退热点、API key
+
+uv run python tools/layout_to_h.py             # 重新生成几何头文件
+scripts/build.sh run                           # 编译 + 烧录 + 看日志
 ```
 
-设备上电连不上 WiFi 时自动进入 **E1003-Recovery** 热点(captive portal),接入后可完成 OTA;随后在 Home Assistant 的 ESPHome 插件中注册设备即可。
+然后在 Home Assistant 里添加设备(**设置 → 设备与服务 → ESPHome**),
+把卡片指向你的灯:
 
-## 适配新场景(总览)
+```yaml
+action: text.set_value
+target: { entity_id: text.e1003_smart_workspace_main_light_target }
+data: { value: light.desk_lamp }
+```
 
-| 想改什么 | 改哪里 |
-|----------|--------|
-| 显示内容 / UI | 换设计稿 PNG → 重跑 `png_to_h.py` → 重新编译 |
-| 动态数据 | `display` lambda 里的 `draw_*` 函数 + 对应的 `sensor` / `text_sensor` 数据源 |
-| 触摸按钮与动作 | `touchscreen.on_touch` 里的 `if` 热区分支 |
-| 控制的 HA 实体 / 机器人话术 | yaml 顶部 `substitutions` |
-| 网络 / 密钥 | `secrets.yaml` |
-| 硬件参数 / 移植 | 引脚、`display` model、字体路径(风险点见 CLAUDE.md) |
+全程没有重新编译。其他可运行时修改的内容见
+**[docs/configuration.md](docs/configuration.md)**。
 
-详细的自适应 checklist 见 **[CLAUDE.md](CLAUDE.md)**。
+## 哪些能改、哪些要重编译
 
-## 安全提示
+| 想改的东西 | 免重编译 | 怎么做 |
+|---|---|---|
+| 按钮控制哪个实体 | ✅ | `text..._main_light_target` |
+| 亮度按钮调用哪个服务 | ✅ | `text..._main_light_action` |
+| 卡片显示的状态/数值 | ✅ | `text..._main_light_state` / `_value` |
+| 时钟卡片文案(天气、日程) | ✅ | `text..._clock_message` |
+| 所有按钮的整体逻辑 | ✅ | `zone_script_hook` → HA 脚本 |
+| 按钮/卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 |
+| 引脚、板型、面板型号、兜底绑定 | ❌ | `e1003-dashboard.yaml` + `-s key value` |
 
-`secrets.yaml` 含明文口令,**不入库**;`ap` 热点默认密码请按需修改。
+这条界线是刻意的:**行为运行时改,设计编译期改**。墨水屏上,设计稿本身就是固件。
 
-## 许可证
+## 定制指引
 
-基于 ESPHome 开源生态,可自由修改与分发。
+| 目标 | 文档 |
+|------|------|
+| 改控制目标、用 HA 驱动面板 | [docs/configuration.md](docs/configuration.md) |
+| 挪按钮、加卡片、换设计稿 | [docs/ui-layout.md](docs/ui-layout.md) |
+| 理解分层与刷新协议 | [docs/architecture.md](docs/architecture.md) |
+| HA 侧配置、转发脚本、push/pull 配方 | [docs/ha-integration.md](docs/ha-integration.md) |
+| 构建、烧录、救砖、工具链 | [docs/build-and-flash.md](docs/build-and-flash.md) |
+| 交给 AI Agent 改造 | [CLAUDE.md](CLAUDE.md) |
+
+## 硬件
+
+| | |
+|---|---|
+| 屏幕 | reTerminal E1003,IT8951,1872×1404,16 级灰度,SPI |
+| 主控 | Seeed XIAO ESP32-S3,八线 PSRAM,Arduino 框架 |
+| 触摸 | GT911(I²C),LEDC 驱动蜂鸣器做反馈 |
+| 传感器 | SHT4x(温湿度)、PCF8563(RTC,带电池备份) |
+
+引脚定义在 `e1003-dashboard.yaml` 的 substitutions 里。
+
+## 许可
+
+MIT,见 [LICENSE](LICENSE)。

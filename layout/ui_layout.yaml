@@ -1,0 +1,231 @@
+# =============================================================================
+# E1003 dashboard layout -- SINGLE SOURCE OF TRUTH
+# =============================================================================
+# Every screen coordinate, font choice and touch hit box lives here.
+# Nothing in this project is allowed to hardcode a pixel number anymore.
+#
+#   python tools/layout_to_h.py              # regenerate the two outputs below
+#   python tools/layout_to_h.py --check      # validate without writing
+#
+# Outputs (both generated, never edit by hand):
+#   layout/generated/ui_layout.h    C++ geometry consumed by the display lambda
+#   layout/generated/fonts.yaml     ESPHome `font:` block consumed by display.yaml
+#
+# Coordinate conventions
+#   cards.*.clear / .fill / .track  ->  {x, y, w, h}  (top-left origin, w/h size)
+#   cards.*.anchor                  ->  {x, y}        the text anchor point
+#   zones.*.area                    ->  {x1, y1, x2, y2}  INCLUSIVE hit box, in the
+#                                       same space as `<canvas width> - touch.x`.
+#                                       Verify on the real panel before trusting it.
+# =============================================================================
+
+meta:
+  canvas:
+    width: 1872
+    height: 1404
+
+# The approved design bitmap. Regenerate with:
+#   python tools/png_to_h.py assets/original.png assets/dashboard_static_v4.h
+bitmap:
+  header: assets/dashboard_static_v4.h
+  symbol: dashboard_v4
+  width: 1872
+  height: 1404
+
+# Grayscale palette used by the dynamic overlays (16-level e-paper ramp).
+palette:
+  G2: 225
+  G3: 185
+  G5: 75
+
+# -----------------------------------------------------------------------------
+# FONTS
+# -----------------------------------------------------------------------------
+# `file` may use substitutions, because the generated fonts.yaml is pulled into
+# the ESPHome config where ${font_regular} / ${font_bold} are defined.
+# Only declare fonts that are actually referenced by a card below -- every font
+# bakes its whole glyph set into flash.
+# -----------------------------------------------------------------------------
+fonts:
+  - { id: font_tiny,   file: "${font_regular}", size: 20 }
+  - { id: font_medium, file: "${font_bold}",    size: 36 }
+  - { id: font_large,  file: "${font_bold}",    size: 48 }
+  - { id: font_number, file: "${font_bold}",    size: 110 }
+
+# -----------------------------------------------------------------------------
+# RUNTIME BINDINGS  (the "no recompile" layer)
+# -----------------------------------------------------------------------------
+# Each entry names ESPHome `text:` entities declared in packages/ha-bridge.yaml.
+# Home Assistant can set them at runtime; the firmware reads them on every draw.
+#
+#   target  entity_id to control            (e.g. light.desk / switch.pump)
+#   action  Home Assistant action to call   (e.g. light.turn_on)
+#   state   optional state override         ("on" / "off" / any text)
+#   value   optional value override         ("25" / "57" / any text)
+#
+# Empty string = fall back to the compile-time binding in packages/ha-bridge.yaml.
+# -----------------------------------------------------------------------------
+runtime:
+  message:
+    # Shown in the clock card. Empty -> the firmware falls back to the local
+    # time-of-day greeting. HA can push e.g. "晴 24°C · 无风" here.
+    text: cfg_message
+    fallback: greeting
+
+  controls:
+    - id: main_light
+      target: cfg_target_main_light
+      action: cfg_action_main_light
+      state: cfg_state_main_light
+      value: cfg_value_main_light
+
+# -----------------------------------------------------------------------------
+# TOUCH ZONES
+# -----------------------------------------------------------------------------
+# op:
+#   toggle  call `homeassistant.toggle` on the control's runtime target
+#   call    call the control's runtime `action` on that target, passing `data`
+#   script  call the global runtime script hook with {zone, control}
+# Every press, whatever the op, also calls the global script hook so Home
+# Assistant automations always see the raw event.
+# -----------------------------------------------------------------------------
+zones:
+  - id: light_toggle
+    label: "Main light on/off"
+    control: main_light
+    area: { x1: 1569, y1: 513, x2: 1774, y2: 604 }
+    op: toggle
+
+  - id: light_25
+    label: "Main light 25%"
+    control: main_light
+    area: { x1: 1229, y1: 711, x2: 1346, y2: 784 }
+    op: call
+    data: { brightness_pct: "25" }
+
+  - id: light_50
+    label: "Main light 50%"
+    control: main_light
+    area: { x1: 1359, y1: 711, x2: 1478, y2: 784 }
+    op: call
+    data: { brightness_pct: "50" }
+
+  - id: light_75
+    label: "Main light 75%"
+    control: main_light
+    area: { x1: 1490, y1: 711, x2: 1607, y2: 784 }
+    op: call
+    data: { brightness_pct: "75" }
+
+  - id: light_100
+    label: "Main light 100%"
+    control: main_light
+    area: { x1: 1620, y1: 711, x2: 1738, y2: 784 }
+    op: call
+    data: { brightness_pct: "100" }
+
+# -----------------------------------------------------------------------------
+# CARDS  (dynamic regions painted on top of the static bitmap)
+# -----------------------------------------------------------------------------
+# Each field is cleared to white before it is redrawn, so the refresh only has
+# to touch a small local bounding box. `font` must exist in `fonts:` above.
+# `source` decides where the value comes from:
+#   clock    local PCF8563 time
+#   rtc      local PCF8563 time (short form)
+#   sensor   local sensor id declared in packages/hardware.yaml
+#   text     a runtime `text:` entity (see runtime:)
+#   light    the control's state/value (runtime override + compile-time default)
+# -----------------------------------------------------------------------------
+cards:
+  clock:
+    clear: { x: 1516, y: 47, w: 312, h: 263 }
+    fields:
+      - id: clock_date
+        source: clock
+        anchor: { x: 1802, y: 62 }
+        align: top_right
+        font: font_medium
+        format: "%a, %b %d, %Y"
+      - id: clock_time
+        source: clock
+        anchor: { x: 1802, y: 125 }
+        align: top_right
+        font: font_number
+        format: "%H:%M"
+      - id: clock_message
+        source: text
+        text: cfg_message
+        fallback: greeting
+        anchor: { x: 1545, y: 256 }
+        align: top_left
+        font: font_medium
+
+  environment:
+    fields:
+      - id: env_temperature
+        source: sensor
+        sensor: sht4x_temperature
+        clear: { x: 802, y: 518, w: 57, h: 56 }
+        anchor: { x: 830, y: 522 }
+        align: top_center
+        font: font_large
+        format: "%.0f"
+      - id: env_humidity
+        source: sensor
+        sensor: sht4x_humidity
+        clear: { x: 1050, y: 518, w: 57, h: 56 }
+        anchor: { x: 1078, y: 522 }
+        align: top_center
+        font: font_large
+        format: "%.0f"
+
+  light:
+    control: main_light
+    fields:
+      - id: light_state_text
+        source: light_state
+        clear: { x: 1375, y: 550, w: 90, h: 55 }
+        anchor: { x: 1420, y: 554 }
+        align: top_center
+        font: font_medium
+      - id: light_button
+        source: light_state
+        clear: { x: 1569, y: 513, w: 205, h: 91 }
+        anchor: { x: 1671, y: 534 }
+        align: top_center
+        font: font_large
+        fill: { x: 1580, y: 525, w: 183, h: 67 }
+      - id: light_value
+        source: light_value
+        clear: { x: 1387, y: 673, w: 100, h: 36 }
+        anchor: { x: 1395, y: 673 }
+        align: top_left
+        font: font_medium
+        format: "%d%%"
+      - id: light_bar
+        source: light_value
+        clear: { x: 1501, y: 674, w: 277, h: 45 }
+        track: { x: 1510, y: 686, w: 258, h: 20 }
+
+  footer:
+    fields:
+      - id: footer_time
+        source: rtc
+        clear: { x: 1706, y: 1324, w: 56, h: 34 }
+        anchor: { x: 1734, y: 1327 }
+        align: top_center
+        font: font_tiny
+        format: "%H:%M"
+
+# -----------------------------------------------------------------------------
+# REFRESH POLICY
+# -----------------------------------------------------------------------------
+# DU  = fast 2-level partial refresh, used for text-only overlays
+# GC16 = full 16-level grayscale refresh, used for the static bitmap
+# -----------------------------------------------------------------------------
+refresh:
+  boot_mode: GC16
+  partial_mode: DU
+  full_update_every: 120     # periodic GC16 to clear ghosting buildup
+  settle_delay: 250ms        # debounce window before a partial refresh fires
+  env_interval: 60s          # onboard SHT4x polling interval

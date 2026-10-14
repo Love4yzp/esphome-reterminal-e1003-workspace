@@ -1,110 +1,93 @@
 # reTerminal E1003 e-paper dashboard for Home Assistant
 
-An Espressif/ESPHome firmware template for the **reTerminal E1003** e-paper
-panel (1872×1404, 16-level grayscale, IT8951) on a **Seeed XIAO ESP32-S3**:
-a design bitmap painted as the static UI, a few dynamic cards refreshed
-individually, and touch zones that talk to Home Assistant.
-
-Two ideas shape the whole repository:
-
-**The design is a source file, not code.** Screen geometry, fonts and touch hit
-boxes live in [`layout/ui_layout.yaml`](layout/ui_layout.yaml) and are compiled
-into a C++ header by `tools/layout_to_h.py`. No pixel number is allowed to appear
-in the ESPHome packages.
-
-**Behaviour is configuration, not firmware.** Which light a button controls,
-what action it calls, and what the cards display are plain Home Assistant `text`
-entities. Re-targeting the panel is a service call — no rebuild, no OTA.
+An Espressif/ESPHome firmware template for the **reTerminal E1003** e-paper panel (1872×1404, 16-level grayscale, IT8951) on a **Seeed XIAO ESP32-S3**: a full-screen design bitmap painted as the static UI, dynamic cards refreshed individually, and touch zones that communicate with Home Assistant.
 
 [简体中文说明](README.zh-CN.md)
 
 ## Features
 
-- Static UI from a single design PNG → 4bpp PackBits-RLE bitmap (≈250 KB)
-- Dirty-flag partial refresh: one `GC16` full paint at boot, local `DU` repaints
-  afterwards, debounced so bursts collapse into one panel update
-- Touch zones as a **data table**: add a button by editing YAML, not an `if` chain
-- All geometry validated at build time (bounds, missing fonts, undeclared ids)
-- Onboard SHT4x temperature/humidity and PCF8563 RTC, time synced from HA
-- Runtime re-targetable controls, card overrides, and an optional HA hook script
-- Optional push/pull channels so the panel can display state of entities the
-  firmware has never heard of
-- `uv`-managed, lockfile-pinned toolchain; one build script for Linux/macOS/Windows
+- Full-screen static UI compiled from a design PNG into a 4bpp PackBits-RLE bitmap, painted with `GC16` at boot.
+- Partial dynamic updates using `DU` waveform with `ui_refresh` debouncing to merge burst events.
+- Data-driven touch zones declared in YAML rather than written as code branches.
+- Build-time validation for geometry boundaries, fonts, and entity IDs.
+- Onboard SHT4x temperature/humidity sensor and PCF8563 RTC with Home Assistant time sync.
+- Runtime retargeting of controls and card text via Home Assistant `text` entities without reflashing.
 
 ## Project structure
 
 ```
-e1003-dashboard.yaml            # ← the only file you flash (thin package assembly)
-├── layout/
-│   ├── ui_layout.yaml          # ← single source of truth: zones, cards, fonts, palette
-│   └── generated/              # ← generated: ui_layout.h, fonts.yaml, policy.yaml
-├── packages/
-│   ├── core.yaml               # ESP32-S3, Wi-Fi, API, OTA, boot sequence
-│   ├── hardware.yaml           # SPI/I2C, buzzer, SHT4x, PCF8563
-│   ├── display.yaml            # IT8951 panel + the render pass
-│   ├── ui-state.yaml           # dirty flags + ui_refresh / ui_beep / ui_repaint
-│   ├── touch.yaml              # GT911 + generic zone dispatch
-│   ├── ha-bridge.yaml          # ← the runtime (no-recompile) configuration layer
-│   └── ha-pull.yaml            # optional: device polls HA for JSON
-├── src/e1003_render.h          # C++ helpers (bitmap decoder)
-├── assets/                     # design PNG + generated bitmap header
-├── tools/                      # png_to_h.py, layout_to_h.py
-├── ha/e1003_dashboard.yaml     # Home Assistant package: routing script + examples
-├── docs/                       # architecture, configuration, layout, HA, build
-└── scripts/                    # build.sh / build.bat / run_esphome.bat
+e1003-dashboard.yaml            # Main firmware entry point (the only file to flash)
+layout/                         # UI layout, coordinates, touch zones, and fonts
+packages/                       # ESPHome packages (core, hardware, display, touch, ha-bridge)
+src/                            # C++ helpers such as bitmap decoding
+assets/                         # Design PNG and generated headers
+tools/                          # Layout compiler and bitmap conversion scripts
+ha/                             # Home Assistant package, routing script, and automations
+docs/                           # Detailed documentation
+scripts/                        # Build scripts for Linux, macOS, and Windows
 ```
+
+See [docs/architecture.md](docs/architecture.md) for the detailed firmware architecture and package breakdown.
 
 ## Quick start
 
-```bash
-uv sync                                            # toolchain from uv.lock
-cp secrets.example.yaml secrets.yaml               # Wi-Fi, AP hotspot, API key
+First, install dependencies and prepare your local configuration file:
 
-uv run python tools/layout_to_h.py                 # regenerate geometry header
-scripts/build.sh run                               # compile + flash + logs
+```bash
+uv sync
+cp secrets.example.yaml secrets.yaml
 ```
 
-Then add the device in Home Assistant (**Settings → Devices & Services → ESPHome**)
-and point the card at one of your lights:
+Edit `secrets.yaml` to fill in your Wi-Fi credentials, fallback hotspot password, and ESPHome API encryption key.
+
+Then compile and flash the firmware:
+
+```bash
+scripts/build.sh run
+```
+
+`scripts/build.sh` automatically runs `tools/layout_to_h.py` to generate layout headers before compiling, so there is no need to run the layout tool manually.
+
+The commands above are for Linux and macOS. On Windows, run `scripts/build.bat run`. See [docs/build-and-flash.md](docs/build-and-flash.md) for detailed build and flashing instructions.
+
+After flashing, add the device in Home Assistant (**Settings → Devices & Services → ESPHome**) and point a control at your target entity:
 
 ```yaml
 action: text.set_value
-target: { entity_id: text.e1003_smart_workspace_main_light_target }
-data: { value: light.desk_lamp }
+target:
+  entity_id: text.e1003_smart_workspace_main_light_target
+data:
+  value: light.desk_lamp
 ```
 
-Nothing was recompiled. See **[docs/configuration.md](docs/configuration.md)** for
-everything that can be changed this way.
+Changes take effect immediately without recompilation. See [docs/configuration.md](docs/configuration.md) for available runtime settings.
 
 ## What can be changed without reflashing
 
-| | without reflashing | how |
-|---|---|---|
-| which entity a button controls | ✅ | `text..._main_light_target` |
-| which action the % buttons call | ✅ | `text..._main_light_action` |
-| what a card displays | ✅ | `text..._main_light_state` / `_value` |
-| clock/banner text (weather, calendar) | ✅ | `text..._clock_message` |
-| what every button does, in general | ✅ | `zone_script_hook` → an HA script |
-| number/position of buttons, cards, fonts | ❌ | `layout/ui_layout.yaml` + design PNG |
-| pins, board, panel model, fallback bindings | ❌ | `e1003-dashboard.yaml` + `-s key value` |
+| Target change | Without reflashing | Mechanism |
+|---|:---:|---|
+| Which entity a button controls | ✅ | `text..._main_light_target` |
+| Which action percentage buttons call | ✅ | `text..._main_light_action` |
+| What a card displays | ✅ | `text..._main_light_state` / `_value` |
+| Clock / banner text (weather, calendar) | ✅ | `text..._clock_message` |
+| What every button does in general | ✅ | `zone_script_hook` → HA script |
+| Number or position of buttons, cards, fonts | ❌ | `layout/ui_layout.yaml` + design PNG |
+| Pins, board model, panel model, fallback bindings | ❌ | `e1003-dashboard.yaml` + `-s key value` |
 
-The dividing line is deliberate: **behaviour is runtime, design is compile-time.**
-On e-paper the artwork *is* the firmware.
-
-## Adapting this template
+## Documentation
 
 | Goal | Docs |
-|------|------|
-| Re-target controls, drive the panel from HA | [docs/configuration.md](docs/configuration.md) |
-| Move a button, add a card, swap the artwork | [docs/ui-layout.md](docs/ui-layout.md) |
-| Understand the layers and the refresh protocol | [docs/architecture.md](docs/architecture.md) |
-| Home Assistant setup, hook script, push/pull recipes | [docs/ha-integration.md](docs/ha-integration.md) |
-| Build, flash, recover, tune the toolchain | [docs/build-and-flash.md](docs/build-and-flash.md) |
-| Hand the repo to an AI agent | [CLAUDE.md](CLAUDE.md) |
+|---|---|
+| Re-target controls and drive the panel from HA | [docs/configuration.md](docs/configuration.md) |
+| Move a button, add a card, or change artwork | [docs/ui-layout.md](docs/ui-layout.md) |
+| Layers, dirty-flag contract, and refresh protocol | [docs/architecture.md](docs/architecture.md) |
+| Home Assistant setup, routing script, and push/pull recipes | [docs/ha-integration.md](docs/ha-integration.md) |
+| Build, flash, troubleshooting, and toolchain setup | [docs/build-and-flash.md](docs/build-and-flash.md) |
+| Agent guidelines and repository conventions | [AGENTS.md](AGENTS.md) |
 
 ## Hardware
 
-| | |
+| Component | Specification |
 |---|---|
 | Panel | reTerminal E1003, IT8951, 1872×1404, 16 gray levels, SPI |
 | MCU | Seeed XIAO ESP32-S3, octal PSRAM, Arduino framework |
@@ -112,7 +95,3 @@ On e-paper the artwork *is* the firmware.
 | Sensors | SHT4x (temperature/humidity), PCF8563 (RTC + battery backup) |
 
 Pin assignments are substitutions in `e1003-dashboard.yaml`.
-
-## License
-
-MIT — see [LICENSE](LICENSE).

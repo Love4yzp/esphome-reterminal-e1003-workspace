@@ -1,113 +1,97 @@
-# reTerminal E1003 墨水屏智能面板(Home Assistant / ESPHome)
+# reTerminal E1003 墨水屏智能面板 (Home Assistant / ESPHome)
 
-基于 **reTerminal E1003** 墨水屏(1872×1404、16 级灰度、IT8951)+ **Seeed XIAO
-ESP32-S3** 的 ESPHome 固件模板:设计稿位图作为静态 UI,少量动态卡片单独局部刷新,
-触摸热区调用 Home Assistant。
-
-整个仓库围绕两个原则:
-
-**设计稿是源文件,不是代码。** 屏幕几何、字体、触摸热区统一放在
-[`layout/ui_layout.yaml`](layout/ui_layout.yaml),由 `tools/layout_to_h.py` 编译成
-C++ 头文件。ESPHome 的 packages 里不允许出现任何一个像素数值。
-
-**行为是配置,不是固件。** 按钮控制哪个实体、调用哪个服务、卡片显示什么内容,
-全部是普通的 Home Assistant `text` 实体。换个灯 = 一次服务调用,**不用重编译、不用
-OTA**。
+基于 **reTerminal E1003** 电子墨水屏（1872×1404、16 级灰度、IT8951）与 **Seeed XIAO ESP32-S3** 的 ESPHome 固件模板：以整屏设计稿位图作为静态 UI，通过局部刷新更新动态卡片，触摸热区直接与 Home Assistant 交互。
 
 [English README](README.md)
 
 ## 核心特性
 
-- 单张设计稿 → 4bpp PackBits-RLE 位图(约 250 KB),启动一次 `GC16` 全刷
-- 脏标记局部刷新:之后只刷变化的卡片,并用 `ui_refresh` 防抖合并突发更新
-- 触摸热区是**数据表**而不是 `if` 链:加按钮只改 YAML
-- 构建期校验几何:越界、字体缺失、布局引用了不存在的实体 id 都会直接报错
-- 板载 SHT4x 温湿度 + PCF8563 RTC(时间由 HA 校时)
-- 运行时可改的目标实体 / 服务 / 卡片文案,以及可选的 HA 转发脚本
-- 可选 push / pull 通道,显示固件"从没听说过"的实体状态
-- 工具链由 `uv` 管理并锁版本,Linux/macOS/Windows 一套构建脚本
+- 单张设计稿 PNG 编译为 4bpp PackBits-RLE 位图，开机以 `GC16` 完整绘制静态 UI。
+- 动态卡片按需以 `DU` 局部刷新，并通过 `ui_refresh` 防抖合并突发状态更新。
+- 触摸热区采用 YAML 数据表定义，无需编写分支判断代码。
+- 构建期校验热区边界、字体文件与实体 ID，提前拦截布局错误。
+- 读取板载 SHT4x 温湿度传感器与 PCF8563 RTC，开机由 Home Assistant 同步校时。
+- 按钮控制目标、服务动作与卡片文本通过 Home Assistant `text` 实体在运行时修改，免重新编译。
 
 ## 目录结构
 
 ```
-e1003-dashboard.yaml            # ← 唯一要烧录的文件(薄薄的 packages 组装)
-├── layout/
-│   ├── ui_layout.yaml          # ← 唯一真源:热区、卡片、字体、调色板、刷新策略
-│   └── generated/              # ← 生成物:ui_layout.h / fonts.yaml / policy.yaml
-├── packages/
-│   ├── core.yaml               # ESP32-S3、Wi-Fi、API、OTA、启动流程
-│   ├── hardware.yaml           # SPI/I2C、蜂鸣器、SHT4x、PCF8563
-│   ├── display.yaml            # IT8951 面板 + 渲染 lambda
-│   ├── ui-state.yaml           # 脏标记 + ui_refresh / ui_beep / ui_repaint
-│   ├── touch.yaml              # GT911 + 通用热区分发
-│   ├── ha-bridge.yaml          # ← 运行时(免重编译)配置层
-│   └── ha-pull.yaml            # 可选:设备反向拉取 HA 的 JSON
-├── src/e1003_render.h          # C++ 辅助函数(RLE 位图解码)
-├── assets/                     # 设计稿 PNG + 生成的位图头文件
-├── tools/                      # png_to_h.py、layout_to_h.py
-├── ha/e1003_dashboard.yaml     # Home Assistant 包:转发脚本 + 示例自动化
-├── docs/                       # 架构 / 配置 / 布局 / HA 集成 / 构建
-└── scripts/                    # build.sh / build.bat / run_esphome.bat
+e1003-dashboard.yaml            # 固件主入口配置（唯一需要烧录的文件）
+layout/                         # 屏幕布局、坐标尺寸、触摸热区与字体定义
+packages/                       # ESPHome 组件包（硬件、显示、触摸、状态与 HA 桥接）
+src/                            # C++ 辅助代码（位图解码等）
+assets/                         # 设计稿 PNG 与生成的位图头文件
+tools/                          # 布局编译与图片转换工具
+ha/                             # Home Assistant 配置包、转发脚本与自动化示例
+docs/                           # 详细文档
+scripts/                        # Linux、macOS 与 Windows 构建脚本
 ```
+
+详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
 
 ## 快速开始
 
-```bash
-uv sync                                        # 按 uv.lock 装工具链
-cp secrets.example.yaml secrets.yaml           # Wi-Fi、回退热点、API key
+首先安装工具链依赖并生成配置文件副本：
 
-uv run python tools/layout_to_h.py             # 重新生成几何头文件
-scripts/build.sh run                           # 编译 + 烧录 + 看日志
+```bash
+uv sync
+cp secrets.example.yaml secrets.yaml
 ```
 
-然后在 Home Assistant 里添加设备(**设置 → 设备与服务 → ESPHome**),
-把卡片指向你的灯:
+编辑 `secrets.yaml`，填入你的 Wi-Fi 凭据、回退热点密码以及 ESPHome API 加密密钥。
+
+然后编译并烧录固件：
+
+```bash
+scripts/build.sh run
+```
+
+`scripts/build.sh` 在编译前会自动调用 `tools/layout_to_h.py` 生成布局头文件，无需手动单独执行生成步骤。
+
+以上命令适用于 Linux 与 macOS；Windows 环境请执行 `scripts/build.bat run`。完整的构建与烧录细节参见 [docs/build-and-flash.md](docs/build-and-flash.md)。
+
+烧录完成后，在 Home Assistant 中添加设备（**设置 → 设备与服务 → ESPHome**），并将控制项指向目标实体：
 
 ```yaml
 action: text.set_value
-target: { entity_id: text.e1003_smart_workspace_main_light_target }
-data: { value: light.desk_lamp }
+target:
+  entity_id: text.e1003_smart_workspace_main_light_target
+data:
+  value: light.desk_lamp
 ```
 
-全程没有重新编译。其他可运行时修改的内容见
-**[docs/configuration.md](docs/configuration.md)**。
+配置保存后即刻生效，无需重新编译固件。所有运行时可配置项参见 [docs/configuration.md](docs/configuration.md)。
 
 ## 哪些能改、哪些要重编译
 
-| 想改的东西 | 免重编译 | 怎么做 |
-|---|---|---|
+| 想改的内容 | 免重编译 | 方式 |
+|---|:---:|---|
 | 按钮控制哪个实体 | ✅ | `text..._main_light_target` |
-| 亮度按钮调用哪个服务 | ✅ | `text..._main_light_action` |
-| 卡片显示的状态/数值 | ✅ | `text..._main_light_state` / `_value` |
-| 时钟卡片文案(天气、日程) | ✅ | `text..._clock_message` |
+| 亮度/百分比按钮调用哪个动作 | ✅ | `text..._main_light_action` |
+| 卡片显示的状态或数值 | ✅ | `text..._main_light_state` / `_value` |
+| 时钟/横幅文案（天气、日历） | ✅ | `text..._clock_message` |
 | 所有按钮的整体逻辑 | ✅ | `zone_script_hook` → HA 脚本 |
-| 按钮/卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 |
+| 按钮与卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 PNG |
 | 引脚、板型、面板型号、兜底绑定 | ❌ | `e1003-dashboard.yaml` + `-s key value` |
 
-这条界线是刻意的:**行为运行时改,设计编译期改**。墨水屏上,设计稿本身就是固件。
+## 文档指引
 
-## 定制指引
-
-| 目标 | 文档 |
-|------|------|
-| 改控制目标、用 HA 驱动面板 | [docs/configuration.md](docs/configuration.md) |
-| 挪按钮、加卡片、换设计稿 | [docs/ui-layout.md](docs/ui-layout.md) |
-| 理解分层与刷新协议 | [docs/architecture.md](docs/architecture.md) |
-| HA 侧配置、转发脚本、push/pull 配方 | [docs/ha-integration.md](docs/ha-integration.md) |
-| 构建、烧录、救砖、工具链 | [docs/build-and-flash.md](docs/build-and-flash.md) |
-| 交给 AI Agent 改造 | [CLAUDE.md](CLAUDE.md) |
+| 目标 | 参考文档 |
+|---|---|
+| 修改控制目标、通过 HA 驱动面板 | [docs/configuration.md](docs/configuration.md) |
+| 移动按钮、添加卡片、更换设计稿 | [docs/ui-layout.md](docs/ui-layout.md) |
+| 固件分层、脏标记机制与刷新协议 | [docs/architecture.md](docs/architecture.md) |
+| Home Assistant 配置、路由脚本与 push/pull 方案 | [docs/ha-integration.md](docs/ha-integration.md) |
+| 编译、烧录、排错与工具链说明 | [docs/build-and-flash.md](docs/build-and-flash.md) |
+| Agent 工作指南与仓库规范 | [AGENTS.md](AGENTS.md) |
 
 ## 硬件
 
-| | |
+| 组件 | 规格 |
 |---|---|
-| 屏幕 | reTerminal E1003,IT8951,1872×1404,16 级灰度,SPI |
-| 主控 | Seeed XIAO ESP32-S3,八线 PSRAM,Arduino 框架 |
-| 触摸 | GT911(I²C),LEDC 驱动蜂鸣器做反馈 |
-| 传感器 | SHT4x(温湿度)、PCF8563(RTC,带电池备份) |
+| 屏幕 | reTerminal E1003, IT8951, 1872×1404, 16 级灰度, SPI |
+| 主控 | Seeed XIAO ESP32-S3, octal PSRAM, Arduino 框架 |
+| 触摸 | GT911 (I²C), LEDC 驱动蜂鸣器反馈 |
+| 传感器 | SHT4x (温湿度), PCF8563 (RTC + 电池备份) |
 
-引脚定义在 `e1003-dashboard.yaml` 的 substitutions 里。
-
-## 许可
-
-MIT,见 [LICENSE](LICENSE)。
+引脚定义是 `e1003-dashboard.yaml` 中的 substitutions。

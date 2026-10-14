@@ -6,3 +6,6 @@
 
 # Python bytecode from the tools/ generators
 __pycache__/
+
+# uv-managed local Python environment
+/.venv/

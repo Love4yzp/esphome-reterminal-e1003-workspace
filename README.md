@@ -16,7 +16,9 @@ An Espressif/ESPHome firmware template for the **reTerminal E1003** e-paper pane
 ## Project structure
 
 ```
-e1003-dashboard.yaml            # Main firmware entry point (the only file to flash)
+e1003-dashboard.yaml            # Developer entry point with local credentials
+e1003-release.yaml              # Credential-free USB provisioning prototype
+e1003-base.yaml                 # Shared defaults and package assembly
 layout/                         # UI layout, coordinates, touch zones, and fonts
 packages/                       # ESPHome packages (core, hardware, display, touch, ha-bridge)
 src/                            # C++ helpers such as bitmap decoding
@@ -28,6 +30,10 @@ scripts/                        # Build scripts for Linux, macOS, and Windows
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the detailed firmware architecture and package breakdown.
+
+The [serial provisioning prototype](docs/provisioning.md) lets maintainers build
+one credential-free image and configure Wi-Fi/API keys after flashing. It is
+USB-only and awaits panel verification and SenseCraft App integration.
 
 ## Quick start
 

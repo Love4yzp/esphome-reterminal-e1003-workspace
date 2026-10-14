@@ -35,7 +35,7 @@ target. That knowledge lives in Home Assistant and can be changed at runtime.
    │  SPI / I2C / buzzer / SHT4x / PCF8563                   │
    ├─────────────────────────────────────────────────────────┤
    │  CORE           packages/core.yaml                      │
-   │  ESP32-S3 / Wi-Fi / API / OTA / boot sequence           │
+   │  ESP32-S3 / logger / OTA / boot sequence                │
    └─────────────────────────────────────────────────────────┘
 ```
 
@@ -44,13 +44,19 @@ target. That knowledge lives in Home Assistant and can be changed at runtime.
 | Concern | Source | Consumed by |
 |---------|--------|-------------|
 | Screen geometry, fonts, touch hit boxes | `layout/ui_layout.yaml` | `tools/layout_to_h.py` → `layout/generated/{ui_layout.h,fonts.yaml,policy.yaml}` |
-| Device identity, wiring, compile-time HA defaults | `e1003-dashboard.yaml` substitutions | every package |
+| Device identity, wiring, compile-time HA defaults | `e1003-base.yaml` substitutions, overridden by the entry-point profile | every package |
 | Behaviour at runtime (targets, actions, card text) | Home Assistant `text` entities | `packages/ha-bridge.yaml`, `packages/touch.yaml` |
 
 If a number appears in two places, one of them is a bug. `tools/layout_to_h.py
 --check` enforces this for the layout file: it verifies that every font, sensor
 and runtime text entity referenced by the layout actually exists under
 `packages/`.
+
+`e1003-dashboard.yaml` is the developer entry point: it adds local Wi-Fi/API
+credentials and the recovery captive portal. `e1003-release.yaml` is a USB-only
+provisioning prototype: it adds serial Improv, per-device identity, and a runtime
+API key. Both include `e1003-base.yaml` so pins, artwork, fonts, and layout are
+shared. See [the provisioning guide](provisioning.md) for current limitations.
 
 ## The dirty-flag contract
 
@@ -111,7 +117,7 @@ assets/original.png ────png_to_h.py─────> assets/dashboard_sta
 
                         src/e1003_render.h                                  (hand-written C++ helpers)
 
-e1003-dashboard.yaml (+ packages/) ─────> esphome compile ──> firmware.ota.bin
+entry-point profile (+ e1003-base.yaml + packages/) ──> esphome compile ──> firmware
 ```
 
 Both generators are idempotent and safe to run on every build; `scripts/build.sh`

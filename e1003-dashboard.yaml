@@ -1,82 +1,17 @@
-# =============================================================================
-# reTerminal E1003 -- e-paper dashboard for Home Assistant
-# =============================================================================
-# This is the only file you flash. It is a thin assembly of packages:
-#
-#   packages/core.yaml        identity, ESP32, Wi-Fi, API, OTA, boot sequence
-#   packages/hardware.yaml    SPI/I2C buses, buzzer, SHT4x, PCF8563 RTC
-#   packages/display.yaml     IT8951 panel + the render pass
-#   packages/ui-state.yaml    dirty flags + the ui_refresh / ui_beep scripts
-#   packages/touch.yaml       GT911 + generic touch zone dispatch
-#   packages/ha-bridge.yaml   the runtime (no-recompile) HA configuration layer
-#
-# Screen geometry, fonts and touch hit boxes are NOT here: they live in
-# layout/ui_layout.yaml and are compiled into layout/generated/.
-#
-# Build:
-#   uv run python tools/layout_to_h.py
-#   uv run esphome compile e1003-dashboard.yaml
-# =============================================================================
-
-substitutions:
-  # ---------------------------------------------------------------------------
-  # Identity -- shown in Home Assistant. Renaming this makes HA treat the
-  # panel as a new device, so set it once.
-  # ---------------------------------------------------------------------------
-  device_name: reterminal-e1003-ha
-  friendly_name: "E1003 Smart Workspace"
-
-  # ---------------------------------------------------------------------------
-  # Board and wiring (reTerminal E1003 + Seeed XIAO ESP32-S3)
-  # Override for a different carrier with `-s pin_... GPIO...`
-  # ---------------------------------------------------------------------------
-  board: seeed_xiao_esp32s3
-  epaper_model: seeed-reterminal-e1003
-  pin_epaper_clk: GPIO7
-  pin_epaper_mosi: GPIO9
-  pin_epaper_miso: GPIO8
-  pin_i2c_scl: GPIO20
-  pin_i2c_sda: GPIO19
-  pin_buzzer: GPIO45
-  pin_touch_int: GPIO2
-  pin_touch_rst: GPIO48
-
-  # ---------------------------------------------------------------------------
-  # Locale and behaviour
-  # ---------------------------------------------------------------------------
-  timezone: Asia/Shanghai
-  log_level: INFO
-  beep_brightness: "50%"
-  beep_duration: 80ms
-  ap_ssid: "E1003-Recovery"
-
-  # ---------------------------------------------------------------------------
-  # Compile-time Home Assistant defaults
-  #
-  # These are only the *fallback* bindings. At runtime the panel uses the
-  # text entities in packages/ha-bridge.yaml, which Home Assistant can change
-  # without reflashing anything.
-  # ---------------------------------------------------------------------------
-  ha_light_entity: light.deskside_lamp
-  ha_light_action: light.turn_on
-
-  # ---------------------------------------------------------------------------
-  # Fonts. Point these at any local TTF; Arial and Liberation Sans are
-  # metric-compatible, so the layout does not shift between Windows and Linux.
-  # ---------------------------------------------------------------------------
-  font_regular: "C:/Windows/Fonts/arial.ttf"
-  font_bold: "C:/Windows/Fonts/arialbd.ttf"
-
-# =============================================================================
-# PACKAGES
-# =============================================================================
+# Developer build: shared dashboard plus local credentials.
+# Use e1003-release.yaml for the credential-free provisioning proof.
 packages:
-  # Generated from layout/ui_layout.yaml -- canvas size, refresh policy.
-  policy: !include layout/generated/policy.yaml
+  dashboard: !include e1003-base.yaml
 
-  core: !include packages/core.yaml
-  hardware: !include packages/hardware.yaml
-  display: !include packages/display.yaml
-  ui_state: !include packages/ui-state.yaml
-  touch: !include packages/touch.yaml
-  ha_bridge: !include packages/ha-bridge.yaml
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: ${ap_ssid}
+    password: !secret ap_password
+
+captive_portal:

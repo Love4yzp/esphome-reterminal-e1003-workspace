@@ -16,7 +16,9 @@
 ## 目录结构
 
 ```
-e1003-dashboard.yaml            # 固件主入口配置（唯一需要烧录的文件）
+e1003-dashboard.yaml            # 开发者入口，使用本地凭据
+e1003-release.yaml              # 无用户凭据的 USB 配网验证版
+e1003-base.yaml                 # 两个入口共享的默认值与组件组合
 layout/                         # 屏幕布局、坐标尺寸、触摸热区与字体定义
 packages/                       # ESPHome 组件包（硬件、显示、触摸、状态与 HA 桥接）
 src/                            # C++ 辅助代码（位图解码等）

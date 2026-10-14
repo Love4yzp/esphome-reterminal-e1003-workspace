@@ -19,6 +19,20 @@ def response_packet(kind, payload):
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_restored_wifi_waits_until_online_before_reading_its_address(self):
+        commands = []
+
+        class Peer:
+            flags = iter(["2", "3"])
+
+            def request(self, command):
+                commands.append(command)
+                return [next(self.flags)] if command == 7 else ["http://192.0.2.1/"]
+
+        with patch.object(setup.time, "sleep"):
+            self.assertEqual(setup.wait_for_network(Peer()), ["http://192.0.2.1/"])
+        self.assertEqual(commands, [7, 7, 2])
+
     def test_consecutive_requests_leave_a_boundary_for_the_device_parser(self):
         class Port:
             def __init__(self):

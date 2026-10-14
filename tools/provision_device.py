@@ -248,13 +248,28 @@ async def configure_api(host: str, path: Path, state: dict, *, verify: bool) -> 
         await client.disconnect()
 
 
-def provision(args) -> None:
-    ssid = args.ssid or input("Wi-Fi SSID: ").strip()
-    if not 1 <= len(ssid.encode("utf-8")) <= 32:
-        raise SetupError("Wi-Fi SSID must contain 1 to 32 UTF-8 bytes")
-    password = getpass.getpass("Wi-Fi password (empty for an open network): ")
-    if password and not 8 <= len(password.encode("utf-8")) <= 63:
-        raise SetupError("Wi-Fi password must contain 8 to 63 UTF-8 bytes")
+def wait_for_network(improv: ImprovClient, timeout: float = 45) -> list[str]:
+    # Improv restores PROVISIONED from saved credentials before Wi-Fi rejoins.
+    # General network flags report actual connectivity, rather than saved setup.
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        flags = improv.request(7)
+        if flags and int(flags[0]) & 1:
+            return improv.request(2)
+        time.sleep(0.5)
+    raise SetupError("Saved Wi-Fi did not reconnect; enter new network settings")
+
+
+def configure_device(args, *, password: str | None = None, keep_wifi: bool = False) -> tuple[Path, dict]:
+    """Configure from CLI or a local App adapter without putting passwords in argv."""
+    if not keep_wifi:
+        ssid = args.ssid or input("Wi-Fi SSID: ").strip()
+        if not 1 <= len(ssid.encode("utf-8")) <= 32:
+            raise SetupError("Wi-Fi SSID must contain 1 to 32 UTF-8 bytes")
+        if password is None:
+            password = getpass.getpass("Wi-Fi password (empty for an open network): ")
+        if password and not 8 <= len(password.encode("utf-8")) <= 63:
+            raise SetupError("Wi-Fi password must contain 8 to 63 UTF-8 bytes")
     target = validate_target(args.target) if args.target else None
     # Keep reset lines inactive when opening the port.
     port = serial.Serial(port=None, baudrate=115200, timeout=0.1, write_timeout=5)
@@ -275,23 +290,36 @@ def provision(args) -> None:
         ):
             raise SetupError("USB device is not the expected E1003 release firmware")
         name = info[3]
-        path = args.state_file or Path(".esphome/provisioning") / f"{name}.json"
+        directory = getattr(args, "state_dir", Path(".esphome/provisioning"))
+        path = args.state_file or directory / f"{name}.json"
         if path.exists():
             state = load_state(path, name)
         else:
+            if keep_wifi:
+                raise SetupError("First setup needs Wi-Fi settings and a saved device key record")
             state = {
                 "project": PROJECT, "name": name, "status": "new",
                 "api_key": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
             }
         if target:
             state["target"] = target
-        urls = improv.request(1, ssid, password, timeout=100)
+        urls = wait_for_network(improv) if keep_wifi else improv.request(1, ssid, password, timeout=100)
         host = args.host or next(
-            (urlparse(url).hostname for url in urls if urlparse(url).hostname),
-            f"{name}.local",
+            (urlparse(url).hostname for url in urls
+             if urlparse(url).hostname and urlparse(url).hostname not in ("0.0.0.0", "::")),
+            state.get("host") or f"{name}.local",
         )
+        on_address = getattr(args, "on_address", None)
+        if on_address:
+            on_address(host)
     save_state(path, state)
     asyncio.run(asyncio.wait_for(configure_api(host, path, state, verify=False), timeout=45))
+    return path, state
+
+
+def provision(args) -> None:
+    path, state = configure_device(args)
+    name, host = state["name"], state["host"]
     print(f"Encrypted API connection verified for {name} at {host}.")
     print(f"Private setup record: {path}")
     print("Allow 65 seconds for text settings to save before resetting, then run verify.")

@@ -109,6 +109,33 @@ require a panel and HA test.
   the same factory image is the recovery path for this prototype. It deletes
   saved Wi-Fi and runtime settings. No automatic erase or key replacement is
   performed by the setup script.
+
+## Local App configuration adapter
+
+`tools/app_configure_device.py` lets an App `script` step configure the device
+using the existing maintainer environment. It takes the USB port, light target,
+optional Wi-Fi name/password, and optional key-copy selection through environment
+variables. The shell command is fixed; user values are not interpolated into
+command text or stored in a generated configuration file.
+
+The variable names are `E1003_USB_PORT`, `E1003_TARGET`, `E1003_WIFI_SSID`,
+`E1003_WIFI_PASSWORD`, and `E1003_COPY_KEY`. Empty Wi-Fi fields preserve the
+current network and require an existing private device record. New Wi-Fi
+settings use the same Improv/key provisioning path as the maintainer client.
+Restored credentials do not prove connectivity: the adapter waits for Improv's
+network-online flag before selecting the device address.
+
+After target readback, the adapter waits 65 seconds, hard-resets the panel,
+and verifies encrypted reconnect and target persistence. Only then does it print
+the `E1003_CONFIGURATION_SAVED` health marker. An explicit key-copy selection
+copies the device key to the macOS clipboard without printing it.
+
+This is a **local test adapter**, not a redistributable dependency bundle. The
+tested App source frontend/backend submits script inputs correctly; the installed
+0.7.3 build on this machine omitted them. Its local solution therefore opens
+the working source-preview configuration page. The source preview has isolated
+application data and a separate runtime pointer; it does not replace the
+installed App. Packaging the runtime for other computers remains pending.
 - Normal USB update: configuration retention depends on the image and erase
   policy. It is not yet verified; do not treat factory reset and update as the
   same operation.

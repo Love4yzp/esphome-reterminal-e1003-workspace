@@ -158,3 +158,37 @@ cause. HA auto-discovery remains unverified on the intended shared LAN.
 
 Continue with the physical setup and reboot procedure in
 [Serial provisioning](provisioning.md) when an E1003 is connected.
+
+## Local App configuration follow-up
+
+The local solution now has both flash-and-configure and configuration-only
+presets. The configuration form supplies a USB port, light entity ID, optional
+Wi-Fi settings, and optional local key copy to `tools/app_configure_device.py`.
+Changing the target does not reflash or rebuild the image.
+
+Actual browser testing exposed two failures before success: `target` conflicts
+with the engine's deployment-target selector (the form now uses `light_entity`),
+and the installed App 0.7.3 did not submit script inputs. The current App source
+at `39aee2da23b2604d2d2cde6bcf3c20c0aecbd16f` already has the input fixes. An
+isolated source preview was built and started; the installed App's configuration
+entry opens that preview rather than presenting a broken script form.
+
+Restored Improv credentials can report provisioning before Wi-Fi reconnects.
+Waiting for actual network-online status corrected the first connection failure.
+The new regression failed before this fix. The adapter's four behavior tests
+also failed before implementation; the complete suite now has 16 passing tests.
+The tests cover network preservation, save-before-reset ordering, secret-free
+output, and invalid-target rejection. External transport peers are simulated.
+
+Through the real configuration form, a configuration-only deployment completed
+in 88.62 seconds: identity check, original-key reuse, test target
+`light.e1003_app_configuration_test` write/readback, normal preference flush,
+hard reset, and encrypted reconnect/readback. An independent read-only client
+check passed afterward. The firmware was not recompiled or flashed in this test.
+The installed App entry was clicked and opened the editable configuration form.
+
+This proves local target configuration with the existing network. New Wi-Fi
+input transport has regression coverage and reuses the previously proven Improv
+path; changing Wi-Fi through this new form has not been physically tested.
+Runtime dependency distribution, real HA light control, and display state
+synchronization remain separate acceptance work.

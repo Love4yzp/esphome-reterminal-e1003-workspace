@@ -1,10 +1,10 @@
-# Serial provisioning prototype
+# Reference firmware setup
 
-This is Phase 1 of [the SenseCraft release plan](sensecraft-release-plan.md).
-Maintainers build the image; users of the planned App workflow will only enter
-settings. The script below is a maintainer proof client, not an App integration.
+Maintainers build one USB firmware image. Users configure its Wi-Fi and light
+entity from the SenseCraft Solution desktop App without compiling or editing
+`secrets.yaml`. The release profile defaults to API access without a key.
 
-## Build without user credentials
+## Build and install
 
 ```bash
 uv sync --frozen
@@ -12,133 +12,84 @@ CONFIG=e1003-release.yaml scripts/build.sh config
 CONFIG=e1003-release.yaml scripts/build.sh compile
 ```
 
-The release profile includes shared defaults from `e1003-base.yaml`, enables a
-unique MAC-suffixed name and serial Improv, and compiles no station Wi-Fi or API
-key. It does not need `secrets.yaml`. First flash uses the generated
-`firmware.factory.bin`; maintainer USB flashing is also available with
-`CONFIG=e1003-release.yaml scripts/build.sh run`.
+If the shell exports an unrelated ESP-IDF installation, unset `IDF_PATH` for
+these commands so ESPHome uses its managed toolchain. The release image uses
+the same pins, artwork and layout as the developer profile. Its MAC-suffixed
+name is unique; its initial light target is empty.
 
-The current release prototype is **USB-only**. ESPHome 2026.9.1's installed OTA
-schema refuses a bare `ota.encryption` block when the API key is provisioned
-at runtime. OTA is removed from this profile until requiring the provisioned
-key has been implemented and verified. The developer profile retains its
-existing encrypted OTA behavior. This prototype is not a production release.
+Release `0.2.0` keeps serial Improv and optional runtime API encryption, but
+removes the API provisioning timeout. A keyless device remains accessible
+after ten minutes and does not reboot while waiting for HA. OTA stays disabled.
+The developer profile retains its existing credentials and encrypted OTA.
 
-The logger remains on the existing UART0. Improv shares that port. A physical
-USB connection must expose that UART to the computer for this proof to work.
-Changing to the ESP32-S3 native USB interface is not a safe assumption: the
-current board configuration also uses GPIO19/20 for I2C. Validate the actual
-carrier USB wiring before changing pins or logger transport.
+## Desktop setup
 
-## Configure a panel
+Use the single **Deploy E1003** entry. Select USB, enter the target `light.*`
+entity, and enter Wi-Fi credentials if the device needs a network. Saved Wi-Fi
+can be reused even when this computer has no prior device record.
 
-Close ESPHome logs and other serial monitors first. They must not hold the port.
-Allow the panel to finish booting, then run:
+The App checks firmware project, version, hardware and name. A matching release
+skips installation; otherwise the App verifies and installs the precompiled
+image without full-chip erase, then checks its identity again. It writes the
+settings, waits 65 seconds, resets the panel and reads the saved target back.
+
+**Enable API encryption** is optional and unchecked by default. In the default
+mode, add the device address to HA's ESPHome integration without a key. The App
+only shows key copying after an encrypted setup. Enable **Allow the device to
+perform Home Assistant actions** in that integration's options.
+
+The target must exist in HA. Saving an entity ID does not add the device to HA
+or grant action permission. Display state and brightness synchronization remain
+a separate HA-side step; see [Home Assistant integration](ha-integration.md).
+
+## Maintainer client
+
+The CLI exercises the same protocol for development; it is not required by App
+users. It prompts for the Wi-Fi password without printing or storing it.
 
 ```bash
 uv run python tools/provision_device.py provision \
-  --port /dev/cu.usbserial-EXAMPLE \
-  --reset \
-  --ssid "Your Wi-Fi" \
-  --target light.office
+  --port /dev/cu.usbserial-EXAMPLE --reset \
+  --ssid "Your Wi-Fi" --target light.office
 ```
 
-The script prompts for the Wi-Fi password without echoing it. It checks the
-USB device's project and unique name, submits Wi-Fi credentials through Improv,
-and extracts the device address from its response. The response URL is address
-metadata for the setup client; there is no device web server to visit.
+Add `--encrypt-api` only to enable a per-device key. The client verifies USB
+and API identity before changing settings. It saves a generated key before
+sending it, so interrupted encrypted setup can reuse the same private record.
 
-`--reset` restarts the E1003 through the carrier's UART reset line and allows
-ten seconds for startup. This was required for reliable reopen/setup on the
-tested WCH bridge (`1a86:7522`); keep serial monitors closed. It also reopens
-the initial API setup window. It does not erase saved configuration.
+Records are private files under `.esphome/provisioning/` with POSIX mode
+`0600`. They contain identity, address and target; encrypted records also hold
+the API key. They never contain the Wi-Fi password. When explicitly switching
+an encrypted panel to the default mode, the existing recovery key is used to
+clear encryption. The record retains it until keyless reconnect succeeds.
+An encrypted device without its recovery record is not silently erased.
 
-After Wi-Fi connects, the client uses ESPHome's initial Noise provisioning
-handshake to install a random 32-byte API key. It checks project/name identity
-before sending the key and verifies an encrypted reconnect afterward. The
-client retries the brief transition while ESPHome activates the new key.
-target text entity is discovered through native API entity metadata; no HA
-entity ID guessing is required. `--target` sets control only: state/brightness
-push still needs the HA setup described in [HA integration](ha-integration.md).
-
-The private record is written to
-`.esphome/provisioning/reterminal-e1003-<mac-suffix>.json`. It stores the device
-identity, API key, target, and last address, but no Wi-Fi password. On POSIX the
-file is created with mode `0600`. Keep it in a private user-owned directory;
-Windows permissions need verification during App integration.
-
-The record is saved before the key request is sent. If setup is interrupted,
-reuse the same record instead of generating another key. Rerun `provision` with
-the same USB device; `--state-file` can explicitly select the saved record.
-If DHCP changed the address, use `--host` with the panel's current IP.
-
-## Add to Home Assistant and check persistence
-
-In HA, confirm the discovered ESPHome device. Explicitly display the saved key
-for the integration's key field with:
-
-```bash
-uv run python tools/provision_device.py show-key \
-  --state-file .esphome/provisioning/reterminal-e1003-<mac-suffix>.json
-```
-
-Allow the device to perform HA actions in its integration options. Wait at least
-65 seconds after changing text settings before removing power or using a hard
-reset: ESPHome's default preference flush interval is 60 seconds. Wi-Fi and
-the API key are synchronized immediately by their provisioning handlers;
-the text readback only confirms the live value. Restart the panel, then use
-the read-only device check:
+Wait 65 seconds after editing runtime text settings before power removal, then
+verify persistence:
 
 ```bash
 uv run python tools/provision_device.py verify \
   --state-file .esphome/provisioning/reterminal-e1003-<mac-suffix>.json
 ```
 
-This verifies the encrypted connection and saved target readback. It does not
-prove the light responds to touches or that the display is synchronized; both
-require a panel and HA test.
+Verification uses the saved mode. `show-key --state-file ...` only prints a key
+when encryption was enabled. A USB update and a factory reset are different:
+normal installation preserves NVS; a full erase deletes Wi-Fi and settings.
 
-## Retry and reset
+## Troubleshooting
 
-- Wi-Fi failure: correct the credentials and rerun setup over USB.
-- Initial setup window expired: reconnect power and retry within ten minutes.
-  Serial Improv remains available after the window expires, but initial API
-  key provisioning requires a reopened window.
-- Lost key record on an already provisioned device: a power cycle does not
-  erase the key. A deliberate factory reset of MCU flash followed by flashing
-  the same factory image is the recovery path for this prototype. It deletes
-  saved Wi-Fi and runtime settings. No automatic erase or key replacement is
-  performed by the setup script.
-
-## Local App configuration adapter
-
-`tools/app_configure_device.py` lets an App `script` step configure the device
-using the existing maintainer environment. It takes the USB port, light target,
-optional Wi-Fi name/password, and optional key-copy selection through environment
-variables. The shell command is fixed; user values are not interpolated into
-command text or stored in a generated configuration file.
-
-The variable names are `E1003_USB_PORT`, `E1003_TARGET`, `E1003_WIFI_SSID`,
-`E1003_WIFI_PASSWORD`, and `E1003_COPY_KEY`. Empty Wi-Fi fields preserve the
-current network and require an existing private device record. New Wi-Fi
-settings use the same Improv/key provisioning path as the maintainer client.
-Restored credentials do not prove connectivity: the adapter waits for Improv's
-network-online flag before selecting the device address.
-
-After target readback, the adapter waits 65 seconds, hard-resets the panel,
-and verifies encrypted reconnect and target persistence. Only then does it print
-the `E1003_CONFIGURATION_SAVED` health marker. An explicit key-copy selection
-copies the device key to the macOS clipboard without printing it.
-
-This is a **local test adapter**, not a redistributable dependency bundle. The
-tested App source frontend/backend submits script inputs correctly; the installed
-0.7.3 build on this machine omitted them. Its local solution therefore opens
-the working source-preview configuration page. The source preview has isolated
-application data and a separate runtime pointer; it does not replace the
-installed App. Packaging the runtime for other computers remains pending.
-- Normal USB update: configuration retention depends on the image and erase
-  policy. It is not yet verified; do not treat factory reset and update as the
-  same operation.
+- Close other serial monitors before setup. The tested WCH bridge requires an
+  explicit reset on reopen; `--reset` does not erase preferences.
+- Keyless setup requires firmware `0.2.0` or later. Older release prototypes
+  close their unconfigured API window; update them before using this mode.
+- Wi-Fi failure: enter the correct network settings and retry.
+- A recognized touch logs `Touch x=... y=...`; a button hit also logs its zone.
+  Zone hits beep and request an HA action. They do not confirm that HA executed
+  the action. The bitmap has no pressed-state animation.
+- No touch log: check GT911 initialization and wiring. Touch logs without a
+  zone hit: check the hit box on real hardware before changing coordinates.
+- Zone hit without light response: check the actual target, HA integration,
+  and action permission. An App setup connection is not an HA integration.
 
 ## Offline checks
 
@@ -146,6 +97,6 @@ installed App. Packaging the runtime for other computers remains pending.
 uv run python -m unittest discover -s tests -v
 ```
 
-These tests cover the wire-format fixture, log/frame fragmentation, malformed
-packets, UTF-8 lengths, identity checks, and recovery from a lost key response.
-The network peer is simulated; passing them is not hardware proof.
+These checks cover Improv framing, identity, keyless operation, optional key
+provisioning, interrupted setup and the local legacy script adapter. They do
+not prove physical touch accuracy or real HA light control.

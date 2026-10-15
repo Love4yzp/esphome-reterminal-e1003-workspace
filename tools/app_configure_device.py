@@ -47,6 +47,7 @@ def run(values: dict) -> None:
     if password and not ssid:
         raise setup.SetupError("Enter a Wi-Fi name when changing its password")
     args = SimpleNamespace(
+        encrypt_api=str(values.get("E1003_ENCRYPT_API", "false")).lower() in ("true", "1", "on"),
         port=port, reset=True, ssid=ssid, target=target,
         host=None, state_file=None, state_dir=ROOT / ".esphome/provisioning",
         on_address=lambda host: print(f"Device address for Home Assistant: {host}", flush=True),
@@ -60,12 +61,12 @@ def run(values: dict) -> None:
         setup.configure_api(state["host"], path, state, verify=True), timeout=45,
     ))
     copy_key = str(values.get("E1003_COPY_KEY", "false")).lower() in ("true", "1", "on")
-    if copy_key:
+    if copy_key and state.get("api_key"):
         if sys.platform != "darwin":
             raise setup.SetupError("Key copy in this local adapter requires macOS")
         subprocess.run(["pbcopy"], input=state["api_key"].encode(), check=True)
         print("Device encryption key copied locally for Home Assistant setup.", flush=True)
-    print("E1003_CONFIGURATION_SAVED: encrypted reconnect and persisted target verified.", flush=True)
+    print("E1003_CONFIGURATION_SAVED: reconnect and persisted target verified.", flush=True)
 
 
 def main(values: dict | None = None) -> int:

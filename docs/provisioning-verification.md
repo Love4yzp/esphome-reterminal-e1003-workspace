@@ -1,5 +1,11 @@
 # Provisioning prototype verification
 
+Current reference default (2026-10-15): firmware 0.2.0 uses keyless API access,
+with optional encryption and no initial API setup timeout. See
+[the current setup guide](provisioning.md) and
+[0.2.0 verification](keyless-reference-verification.md). Mandatory-key and timed-window
+steps below describe the earlier 0.1.0 prototype and its historical evidence.
+
 Verified on 2026-10-14 on macOS with ESPHome 2026.9.1 from the project lockfile.
 Software checks, USB flashing, Wi-Fi/key/target provisioning, two resets, and
 same-image USB update persistence pass on one E1003. This is not a production

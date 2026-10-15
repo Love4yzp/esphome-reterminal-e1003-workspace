@@ -1,5 +1,10 @@
 # SenseCraft precompiled firmware deployment plan
 
+Current reference default (2026-10-15): firmware 0.2.0 uses keyless API access,
+with optional encryption and no initial API setup timeout. See
+[the current setup guide](provisioning.md). Mandatory-key and timed-window
+steps below describe the earlier 0.1.0 prototype and its historical evidence.
+
 ## Go / No-Go
 
 **Go for HA and App integration proof.** The USB-only release prototype now

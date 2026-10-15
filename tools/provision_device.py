@@ -156,9 +156,12 @@ def save_state(path: Path, state: dict) -> None:
 
 def load_state(path: Path, expected_name: str | None = None) -> dict:
     state = json.loads(path.read_text())
-    key = base64.b64decode(state["api_key"], validate=True)
-    if len(key) != 32 or not any(key):
-        raise SetupError("Saved API key is invalid")
+    if state.get("api_key"):
+        key = base64.b64decode(state["api_key"], validate=True)
+        if len(key) != 32 or not any(key):
+            raise SetupError("Saved API key is invalid")
+    elif state.get("encrypt_api", False):
+        raise SetupError("Encrypted setup needs its saved API key")
     if state.get("project") != PROJECT or not re.fullmatch(
         r"reterminal-e1003-[0-9a-f]{6}", state.get("name", "")
     ):
@@ -168,7 +171,7 @@ def load_state(path: Path, expected_name: str | None = None) -> dict:
     return state
 
 
-def api_client(host: str, state: dict, key: str) -> APIClient:
+def api_client(host: str, state: dict, key: str | None) -> APIClient:
     mac = state.get("mac")
     return APIClient(
         host, 6053, noise_psk=key, expected_name=state["name"],
@@ -201,6 +204,51 @@ async def read_target(client: APIClient, target: str, write: bool) -> None:
 
 
 async def configure_api(host: str, path: Path, state: dict, *, verify: bool) -> None:
+    if state.get("encrypt_api", bool(state.get("api_key"))):
+        await _configure_encrypted_api(host, path, state, verify=verify)
+        return
+    client = api_client(host, state, None)
+    try:
+        await client.connect(log_errors=False)
+    except APIConnectionError:
+        await client.disconnect()
+        if verify or not state.get("api_key"):
+            raise SetupError("Keyless reconnect failed; check the device or its existing key record")
+        # Explicitly switching an existing panel to the reference default.
+        # Keep its recovery key until a plaintext reconnect succeeds.
+        client = api_client(host, state, state["api_key"])
+        try:
+            await client.connect(log_errors=False)
+            info = await client.device_info()
+            check_identity(info, state["name"], state.get("mac"))
+            if not await client.noise_encryption_set_key(b""):
+                raise SetupError("Device refused to disable API encryption")
+        finally:
+            await client.disconnect()
+        for attempt in range(4):
+            await asyncio.sleep(0.2)
+            client = api_client(host, state, None)
+            try:
+                await client.connect(log_errors=False)
+                break
+            except APIConnectionError:
+                await client.disconnect()
+                if attempt == 3:
+                    raise SetupError("Keyless connection did not become active; retry with the saved record")
+    try:
+        info = await client.device_info()
+        check_identity(info, state["name"], state.get("mac"))
+        state["mac"] = info.mac_address
+        if state.get("target"):
+            await read_target(client, state["target"], write=not verify)
+        state.update(status="verified", host=host, encrypt_api=False)
+        state.pop("api_key", None)
+        save_state(path, state)
+    finally:
+        await client.disconnect()
+
+
+async def _configure_encrypted_api(host: str, path: Path, state: dict, *, verify: bool) -> None:
     client = api_client(host, state, state["api_key"])
     try:
         await client.connect(log_errors=False)
@@ -289,18 +337,20 @@ def configure_device(args, *, password: str | None = None, keep_wifi: bool = Fal
             r"reterminal-e1003-[0-9a-f]{6}", info[3]
         ):
             raise SetupError("USB device is not the expected E1003 release firmware")
+        if not getattr(args, "encrypt_api", False):
+            version = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", info[1])
+            if not version or tuple(map(int, version.groups())) < (0, 2, 0):
+                raise SetupError("Keyless reference setup requires firmware 0.2.0 or later")
         name = info[3]
         directory = getattr(args, "state_dir", Path(".esphome/provisioning"))
         path = args.state_file or directory / f"{name}.json"
         if path.exists():
             state = load_state(path, name)
         else:
-            if keep_wifi:
-                raise SetupError("First setup needs Wi-Fi settings and a saved device key record")
-            state = {
-                "project": PROJECT, "name": name, "status": "new",
-                "api_key": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
-            }
+            state = {"project": PROJECT, "name": name, "status": "new"}
+        state["encrypt_api"] = bool(getattr(args, "encrypt_api", False))
+        if state["encrypt_api"] and not state.get("api_key"):
+            state["api_key"] = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
         if target:
             state["target"] = target
         urls = wait_for_network(improv) if keep_wifi else improv.request(1, ssid, password, timeout=100)
@@ -320,7 +370,7 @@ def configure_device(args, *, password: str | None = None, keep_wifi: bool = Fal
 def provision(args) -> None:
     path, state = configure_device(args)
     name, host = state["name"], state["host"]
-    print(f"Encrypted API connection verified for {name} at {host}.")
+    print(f"API connection verified for {name} at {host}.")
     print(f"Private setup record: {path}")
     print("Allow 65 seconds for text settings to save before resetting, then run verify.")
     print("HA state sync is a separate step.")
@@ -334,6 +384,7 @@ def main() -> int:
     setup.add_argument("--reset", action="store_true", help="Reset the E1003 through its UART bridge before setup")
     setup.add_argument("--ssid")
     setup.add_argument("--target")
+    setup.add_argument("--encrypt-api", action="store_true", help="Optionally enable a per-device API key")
     setup.add_argument("--host", help="Override the device's reported IP/mDNS address")
     setup.add_argument("--state-file", type=Path)
     verify = commands.add_parser("verify", help="Read-only encrypted reconnect and target readback")
@@ -348,13 +399,13 @@ def main() -> int:
         else:
             state = load_state(args.state_file)
             if args.command == "show-key":
-                print(state["api_key"])
+                print(state.get("api_key") or "No API key configured.")
             else:
                 host = args.host or state.get("host") or f"{state['name']}.local"
                 asyncio.run(asyncio.wait_for(
                     configure_api(host, args.state_file, state, verify=True), timeout=45
                 ))
-                print(f"Encrypted reconnect and target readback passed for {state['name']}.")
+                print(f"API reconnect and target readback passed for {state['name']}.")
         return 0
     except (SetupError, APIConnectionError, TimeoutError, serial.SerialException,
             OSError, ValueError, KeyError) as exc:

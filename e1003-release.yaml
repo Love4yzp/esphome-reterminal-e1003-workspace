@@ -4,7 +4,7 @@ packages:
 
 substitutions:
   device_name: reterminal-e1003
-  firmware_version: "0.1.0"
+  firmware_version: "0.2.0"
   # State is supplied at runtime; this unused fallback never targets a real lamp.
   ha_light_entity: light.e1003_unconfigured
 
@@ -14,8 +14,10 @@ esphome:
     name: love4yzp.e1003-dashboard
     version: ${firmware_version}
 
-# A missing YAML key enables ESPHome's runtime key provisioning protocol.
+# Default API access needs no key. Maintainers can optionally provision encryption.
+# Do not add a provisioning timeout: keyless reference use must remain available.
 api:
+  reboot_timeout: 0s
   encryption:
 
 # The pinned OTA schema cannot require a runtime-provisioned API key yet.
@@ -29,9 +31,6 @@ wifi:
 improv_serial:
   # The setup client extracts the host and identity; no web server is enabled.
   next_url: "http://{{ip_address}}/?device={{device_name}}"
-
-provisioning:
-  timeout: 10min
 
 text:
   - id: !extend cfg_target_main_light

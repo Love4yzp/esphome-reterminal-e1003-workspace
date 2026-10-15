@@ -49,7 +49,9 @@ Wi-Fi fields were empty; the device reused its saved network. The prior private
 API record authorized clearing its key without full-chip erase. The same target
 was written, followed by a 65-second save wait, reset and keyless target readback.
 Completion reported `encrypted: false`. The resulting private record contains
-no API key. Desktop and 375x812 form screenshots confirmed the optional checkbox
+no API key. A separate plaintext connection and target readback passed at least
+610 seconds after the completed reset verification, beyond the old ten-minute
+window. Desktop and 375x812 form screenshots confirmed the optional checkbox
 starts unchecked, key copying stays hidden, and the form has no horizontal
 overflow. This proves the shared frontend/backend flow, not a new native-window
 form submission.

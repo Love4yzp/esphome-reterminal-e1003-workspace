@@ -47,6 +47,9 @@ uv run esphome --device /dev/ttyACM0 run e1003-dashboard.yaml
 
 ## First flash (USB)
 
+These commands build the developer profile. For the maintainer-built,
+credential-free release prototype, see [Serial provisioning](provisioning.md).
+
 ```bash
 cp secrets.example.yaml secrets.yaml
 #   wifi_ssid / wifi_password / ap_password
@@ -85,7 +88,10 @@ If an OTA update ever bricks the panel, hold BOOT and re-flash over USB with
 ```
 
 `.esphome/` is a cache: deleting it costs one full rebuild (the ESP-IDF
-toolchain itself is cached in `~/.cache/esphome/idf/` and is not re-downloaded).
+toolchain itself is cached in the platform's ESPHome cache directory and is not
+re-downloaded: `~/.cache/esphome/idf/` on Linux,
+`~/Library/Caches/esphome/idf/` on macOS). An inherited `IDF_PATH` selects a
+separate ESP-IDF installation; unset it when using ESPHome's managed toolchain.
 
 ## Expected footprint
 

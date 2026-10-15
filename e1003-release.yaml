@@ -1,0 +1,36 @@
+# Release prototype: no personal credentials or secrets.yaml required.
+packages:
+  dashboard: !include e1003-base.yaml
+
+substitutions:
+  device_name: reterminal-e1003
+  firmware_version: "0.2.1"
+  # State is supplied at runtime; this unused fallback never targets a real lamp.
+  ha_light_entity: light.e1003_unconfigured
+
+esphome:
+  name_add_mac_suffix: true
+  project:
+    name: love4yzp.e1003-dashboard
+    version: ${firmware_version}
+
+# Reference API access is plaintext-only; HA cannot install an encryption key.
+# The developer entry point keeps its separate encrypted API configuration.
+api:
+  reboot_timeout: 0s
+
+# The pinned OTA schema cannot require a runtime-provisioned API key yet.
+# Keep this proof USB-only until authenticated OTA is verified.
+ota: !remove
+
+wifi:
+  # Keep the device available for USB setup even after the setup window expires.
+  reboot_timeout: 0s
+
+improv_serial:
+  # The setup client extracts the host and identity; no web server is enabled.
+  next_url: "http://{{ip_address}}/?device={{device_name}}"
+
+text:
+  - id: !extend cfg_target_main_light
+    initial_value: ""

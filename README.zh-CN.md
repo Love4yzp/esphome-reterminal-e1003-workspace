@@ -31,7 +31,7 @@ scripts/                        # Linux、macOS 与 Windows 构建脚本
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
 
-参考设计使用维护者预编译的单一 USB 固件，通过 App 配置 Wi-Fi 和灯光目标，默认无需 API 密钥，加密为可选项。使用者不需要编辑 YAML 或编译固件，见[配置流程](docs/provisioning.md)。下方快速开始面向固件开发者。
+参考设计使用维护者预编译的单一 USB 固件，通过 App 配置 Wi-Fi 和灯光目标，参考固件不使用 API 密钥，也没有加密配置项。使用者不需要编辑 YAML 或编译固件，见[配置流程](docs/provisioning.md)。下方快速开始面向固件开发者。
 
 ## 快速开始
 

@@ -45,8 +45,8 @@ Layout-derived values (`canvas_width`, `refresh_*`) are generated into
 The [release prototype](provisioning.md) overrides the device name and uses a
 MAC suffix. Its target starts empty, so buttons do nothing until configured;
 the unused fallback entity is `light.e1003_unconfigured`. Display state/value
-overrides keep the same empty-value fallback behavior. Serial Wi-Fi setup defaults to keyless API access; encryption is optional.
-Setup does not require a user secrets file. `firmware_version` defaults to `0.2.0`
+overrides keep the same empty-value fallback behavior. Serial Wi-Fi setup uses plaintext-only API access, with no key.
+Setup does not require a user secrets file. `firmware_version` defaults to `0.2.1`
 in the release profile and is build-time project metadata, not a runtime setting.
 
 ## Tier 2 — runtime text entities (no recompile, no reboot)

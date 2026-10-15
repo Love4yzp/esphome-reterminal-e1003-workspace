@@ -54,8 +54,8 @@ and runtime text entity referenced by the layout actually exists under
 
 `e1003-dashboard.yaml` is the developer entry point: it adds local Wi-Fi/API
 credentials and the recovery captive portal. `e1003-release.yaml` is a USB-only
-provisioning prototype: it adds serial Improv, per-device identity, and a runtime
-API key when explicitly enabled; API access is keyless by default. Both include `e1003-base.yaml` so pins, artwork, fonts, and layout are
+provisioning prototype: it adds serial Improv, per-device identity, and plaintext-only
+API access without a key. Both include `e1003-base.yaml` so pins, artwork, fonts, and layout are
 shared. See [the provisioning guide](provisioning.md) for current limitations.
 
 ## The dirty-flag contract

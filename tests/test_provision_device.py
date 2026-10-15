@@ -29,7 +29,7 @@ class ProtocolTests(unittest.TestCase):
             self.assertNotIn("api_key", state)
         with tempfile.TemporaryDirectory() as directory:
             args = SimpleNamespace(port="test-port", reset=False, ssid="", target="light.office", host=None, state_file=None, state_dir=Path(directory))
-            peer = SimpleNamespace(request=lambda command: [setup.PROJECT, "0.2.0", "ESP32-S3", "reterminal-e1003-aabbcc"])
+            peer = SimpleNamespace(request=lambda command: [setup.PROJECT, "0.2.1", "ESP32-S3", "reterminal-e1003-aabbcc"])
             with patch.object(setup.serial, "Serial", return_value=Port()), patch.object(setup, "ImprovClient", return_value=peer), patch.object(setup, "wait_for_network", return_value=["http://192.0.2.1/"]), patch.object(setup, "configure_api", side_effect=configure):
                 path, state = setup.configure_device(args, keep_wifi=True)
             self.assertTrue(path.exists())

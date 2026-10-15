@@ -339,8 +339,8 @@ def configure_device(args, *, password: str | None = None, keep_wifi: bool = Fal
             raise SetupError("USB device is not the expected E1003 release firmware")
         if not getattr(args, "encrypt_api", False):
             version = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", info[1])
-            if not version or tuple(map(int, version.groups())) < (0, 2, 0):
-                raise SetupError("Keyless reference setup requires firmware 0.2.0 or later")
+            if not version or tuple(map(int, version.groups())) < (0, 2, 1):
+                raise SetupError("Keyless reference setup requires firmware 0.2.1 or later")
         name = info[3]
         directory = getattr(args, "state_dir", Path(".esphome/provisioning"))
         path = args.state_file or directory / f"{name}.json"
@@ -379,12 +379,11 @@ def provision(args) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    setup = commands.add_parser("provision", help="USB Wi-Fi setup, API key setup, optional target")
+    setup = commands.add_parser("provision", help="USB Wi-Fi setup and runtime target")
     setup.add_argument("--port", required=True)
     setup.add_argument("--reset", action="store_true", help="Reset the E1003 through its UART bridge before setup")
     setup.add_argument("--ssid")
     setup.add_argument("--target")
-    setup.add_argument("--encrypt-api", action="store_true", help="Optionally enable a per-device API key")
     setup.add_argument("--host", help="Override the device's reported IP/mDNS address")
     setup.add_argument("--state-file", type=Path)
     verify = commands.add_parser("verify", help="Read-only encrypted reconnect and target readback")

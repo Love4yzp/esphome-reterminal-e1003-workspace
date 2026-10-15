@@ -5,8 +5,8 @@
 Flash the panel (see `docs/build-and-flash.md`), let it join your Wi-Fi, then
 **Settings → Devices & Services → Add Integration → ESPHome** and enter the
 device name (`reterminal-e1003-ha` for the developer profile, or its IP).
-The reference release uses a MAC-suffixed name and needs no API key by default.
-If you enabled optional encryption, copy its key from the App. In the ESPHome
+The reference release uses a MAC-suffixed name and plaintext-only API access
+without a key. In the ESPHome
 integration options, enable **Allow the device to perform Home Assistant actions**
 so touches can control the configured target.
 

@@ -1,9 +1,36 @@
-# Keyless reference firmware verification
+# Keyless reference verification history
 
 Date: 2026-10-15. This records the reference default requested after the
 [earlier encrypted prototype](provisioning-verification.md).
 
-## Change
+## Current 0.2.1 build
+
+Configuration and compilation pass. The generated firmware defines
+`USE_API_PLAINTEXT`; `USE_API_NOISE` and `USE_PROVISIONING` are absent. API
+client-wait rebooting remains disabled. The App has no key-selection or key-copy
+control, and `encrypt_api=true` is rejected before hardware access.
+
+- Factory image: 1,337,072 bytes (41,440 fewer than 0.1.0).
+- SHA-256: `23dae64ed8b79f05a423a2748b6b3e2f1369e96b80f0d16fd03deebb62609528`.
+- Application flash: 1,271,415 bytes (69.3%); RAM: 112,583 bytes (32.9%).
+- 19 tool checks, 53 focused App checks plus five subtests, and 955 frontend
+  checks pass. PyInstaller/Rust/Tauri debug builds pass. No new compiler
+  warnings; existing pin warnings are unchanged.
+- Upload was not started: the WCH USB serial port disappeared before selection.
+  Actual device identity, `api_encryption_supported == false`, persistence and
+  touch on 0.2.1 still need a reconnected device. The prior 0.2.0 image must not
+  be reported as this final image's hardware proof.
+
+## Subsequent correction
+
+The 0.2.0 keyless reconnect passed at 610 seconds, but a later connection
+required encryption again. The initiating client has not been identified.
+Retaining runtime encryption support therefore does not establish fixed
+keyless behavior. The final reference profile is 0.2.1, with API encryption
+compiled out. The developer profile retains separate encryption support.
+The 0.2.0 results below are historical and do not certify the final image.
+
+## 0.2.0 experiment
 
 Release `0.2.0` defaults to API access without a key. Optional runtime encryption
 is retained. Removing the initial provisioning timer keeps keyless API access

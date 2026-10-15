@@ -58,8 +58,8 @@ updates.
 Text settings are normally flushed to flash every 60 seconds. Allow at least
 65 seconds after a change before removing power or performing a hard reset.
 A live API readback confirms the current value, not completion of that flash
-write. Wi-Fi and runtime API key provisioning synchronize their own writes
-immediately; see [the provisioning proof](provisioning-verification.md).
+write. The App waits before restarting and verifying the saved target; see
+[reference setup](provisioning.md).
 
 | Entity (suffix) | Default | Purpose |
 |-----------------|---------|---------|

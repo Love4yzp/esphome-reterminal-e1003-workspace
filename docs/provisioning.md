@@ -1,10 +1,11 @@
 # Reference firmware setup
 
-Maintainers build one USB firmware image. Users configure its Wi-Fi and light
-entity from the SenseCraft Solution desktop App without compiling or editing
-`secrets.yaml`. The reference release uses plaintext-only API access without a key.
+Maintainers build one USB image. Users configure Wi-Fi and a light entity in
+SenseCraft Solution without editing YAML or compiling firmware. Release 0.2.1
+uses plaintext-only API access, with no encryption selection or key-copy step.
+The separate developer profile retains its own encrypted API and OTA settings.
 
-## Build and install
+## Maintainer build
 
 ```bash
 uv sync --frozen
@@ -12,90 +13,51 @@ CONFIG=e1003-release.yaml scripts/build.sh config
 CONFIG=e1003-release.yaml scripts/build.sh compile
 ```
 
-If the shell exports an unrelated ESP-IDF installation, unset `IDF_PATH` for
-these commands so ESPHome uses its managed toolchain. The release image uses
-the same pins, artwork and layout as the developer profile. Its MAC-suffixed
-name is unique; its initial light target is empty.
+Unset an unrelated `IDF_PATH` so ESPHome uses its managed toolchain. Publish the
+factory image with its exact version, size and SHA-256 in the solution manifest.
+Use a different project version for every different firmware image. Normal USB
+installation preserves NVS; full-chip erase deletes saved Wi-Fi and settings.
 
-Release `0.2.1` keeps serial Improv and removes API encryption support entirely.
-External clients cannot set an encryption key on this image. It also removes
-the API provisioning timeout. A keyless device remains accessible
-after ten minutes and does not reboot while waiting for HA. OTA stays disabled.
-The developer profile retains its existing credentials and encrypted OTA.
+The provisioning client is maintained in the [desktop App](https://github.com/suharvest/app_collaboration/pull/162).
+This repository contains firmware and design tooling, not a second client.
 
-## Desktop setup
+## User setup
 
-Use the single **Deploy E1003** entry. Select USB, enter the target `light.*`
-entity, and enter Wi-Fi credentials if the device needs a network. Saved Wi-Fi
-can be reused even when this computer has no prior device record.
+1. Open **Configure E1003** in the App and connect the USB data cable.
+2. Confirm the USB port and paste the target light's `light.*` entity ID.
+3. Open Wi-Fi settings for first setup or a network change. Otherwise leave
+   them empty to reuse the saved network.
+4. Click **Save settings**. The App checks firmware and installs it if needed,
+   saves configuration, waits 65 seconds, restarts and verifies the target.
+5. After **Settings saved and verified**, add the displayed address in HA's
+   ESPHome integration and allow the device to perform Home Assistant actions.
 
-The App checks firmware project, version, hardware and name. A matching release
-skips installation; otherwise the App verifies and installs the precompiled
-image without full-chip erase, then checks its identity again. It writes the
-settings, waits 65 seconds, resets the panel and reads the saved target back.
+Keep the computer, panel and HA on a mutually reachable LAN. Saving a light ID
+neither adds the device to HA nor grants action permission. Display state and
+brightness synchronization need separate HA configuration; see
+[Home Assistant integration](ha-integration.md).
 
-Add the device address to HA's ESPHome integration without a key. There is no
-encryption option or key-copy step. Enable **Allow the device to
-perform Home Assistant actions** in that integration's options.
+## Current verification
 
-The target must exist in HA. Saving an entity ID does not add the device to HA
-or grant action permission. Display state and brightness synchronization remain
-a separate HA-side step; see [Home Assistant integration](ha-integration.md).
+| Scope | Status |
+| --- | --- |
+| Release 0.2.1 configuration and compilation | Passed; plaintext enabled, encryption support removed |
+| App installation/configuration software | See App tests and CI; no local Python install is required |
+| Final 0.2.1 physical installation and readback | Not verified |
+| Physical touch, actual HA control and display synchronization | Not verified |
 
-## Maintainer client
-
-The CLI exercises the same protocol for development; it is not required by App
-users. It prompts for the Wi-Fi password without printing or storing it.
-
-```bash
-uv run python tools/provision_device.py provision \
-  --port /dev/cu.usbserial-EXAMPLE --reset \
-  --ssid "Your Wi-Fi" --target light.office
-```
-
-The client verifies USB and API identity before changing settings. It does not
-generate or send an API key for the reference image.
-
-Records are private files under `.esphome/provisioning/` with POSIX mode
-`0600`. They contain identity, address and target, with no Wi-Fi password or
-API key for this reference image. Normal installation preserves NVS. Stored
-keys from older experiments are ignored by plaintext-only firmware; no key
-record or full-chip erase is required to install it.
-
-Wait 65 seconds after editing runtime text settings before power removal, then
-verify persistence:
-
-```bash
-uv run python tools/provision_device.py verify \
-  --state-file .esphome/provisioning/reterminal-e1003-<mac-suffix>.json
-```
-
-Verification uses keyless access. The legacy `show-key` helper is unnecessary
-for this image. A USB update and a factory reset are different:
-normal installation preserves NVS; a full erase deletes Wi-Fi and settings.
+Further physical tests were excluded by the user. Earlier prototype results
+do not establish acceptance of the final image.
 
 ## Troubleshooting
 
-- Close other serial monitors before setup. The tested WCH bridge requires an
-  explicit reset on reopen; `--reset` does not erase preferences.
-- Keyless setup requires firmware `0.2.1` or later. Older prototypes can
-  close their setup window or accept an encryption key from a client; update
-  them before using this fixed reference mode.
-- Wi-Fi failure: enter the correct network settings and retry.
-- A recognized touch logs `Touch x=... y=...`; a button hit also logs its zone.
-  Zone hits beep and request an HA action. They do not confirm that HA executed
-  the action. The bitmap has no pressed-state animation.
-- No touch log: check GT911 initialization and wiring. Touch logs without a
-  zone hit: check the hit box on real hardware before changing coordinates.
-- Zone hit without light response: check the actual target, HA integration,
-  and action permission. An App setup connection is not an HA integration.
-
-## Offline checks
-
-```bash
-uv run python -m unittest discover -s tests -v
-```
-
-These checks cover Improv framing, identity, keyless operation, optional key
-provisioning, interrupted setup and the local legacy script adapter. They do
-not prove physical touch accuracy or real HA light control.
+- Missing port: check the data cable, refresh, and close other serial tools.
+- Wrong network: enter the correct 2.4 GHz Wi-Fi settings and retry.
+- Configuration failure: inspect technical details in the App. It preserves
+  NVS and does not use keys or local key-recovery records.
+- A recognized touch logs `Touch x=... y=...`; a zone hit also beeps and
+  requests an HA action. It does not prove the light changed. Only the switch
+  and four brightness zones have bindings; other artwork is static.
+- No touch log: inspect GT911 initialization and wiring. Correct hit boxes
+  only with real-panel testing. For an action without a light response,
+  check the target entity and HA action permission.

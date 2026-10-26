@@ -12,6 +12,8 @@
 - 构建期校验热区边界、字体文件与实体 ID，提前拦截布局错误。
 - 读取板载 SHT4x 温湿度传感器与 PCF8563 RTC，开机由 Home Assistant 同步校时。
 - 按钮控制目标、服务动作与卡片文本通过 Home Assistant `text` 实体在运行时修改，免重新编译。
+- 工具链由 `uv` 管理并锁版本,Linux/macOS/Windows 共用同一个构建入口
+- 字体随仓库分发(`assets/fonts/`,SIL OFL 1.1):主机无需装字体,三平台字形一致
 
 ## 目录结构
 
@@ -22,11 +24,11 @@ e1003-base.yaml                 # 两个入口共享的默认值与组件组合
 layout/                         # 屏幕布局、坐标尺寸、触摸热区与字体定义
 packages/                       # ESPHome 组件包（硬件、显示、触摸、状态与 HA 桥接）
 src/                            # C++ 辅助代码（位图解码等）
-assets/                         # 设计稿 PNG 与生成的位图头文件
+assets/                         # 设计稿 PNG、生成的位图头文件与内置字体
 tools/                          # 布局编译与图片转换工具
 ha/                             # Home Assistant 配置包、转发脚本与自动化示例
 docs/                           # 详细文档
-scripts/                        # Linux、macOS 与 Windows 构建脚本
+scripts/                        # 跨平台 build.py 与 shell 兼容包装
 ```
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
@@ -47,12 +49,11 @@ cp secrets.example.yaml secrets.yaml
 然后编译并烧录固件：
 
 ```bash
-scripts/build.sh run
+uv run python scripts/build.py run
 ```
 
-`scripts/build.sh` 在编译前会自动调用 `tools/layout_to_h.py` 生成布局头文件，无需手动单独执行生成步骤。
-
-以上命令适用于 Linux 与 macOS；Windows 环境请执行 `scripts/build.bat run`。完整的构建与烧录细节参见 [docs/build-and-flash.md](docs/build-and-flash.md)。
+构建入口会在编译前自动生成布局文件，并在 Linux、Windows 与 macOS 上使用
+同一套命令。完整的构建与烧录细节参见 [docs/build-and-flash.md](docs/build-and-flash.md)。
 
 烧录完成后，在 Home Assistant 中添加设备（**设置 → 设备与服务 → ESPHome**），并将控制项指向目标实体：
 

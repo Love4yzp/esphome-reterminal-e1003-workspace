@@ -24,20 +24,23 @@ uv run python tools/layout_to_h.py
 ## Everyday commands
 
 ```bash
-scripts/build.sh                 # layout check + compile
-scripts/build.sh run             # compile + flash over USB + logs
-scripts/build.sh upload          # compile + OTA upload
-scripts/build.sh logs            # serial/OTA logs
-scripts/build.sh config          # dump the merged configuration
-scripts/build.sh compile -s ha_light_entity light.other   # extra build flags
+uv run python scripts/build.py                 # layout check + compile
+uv run python scripts/build.py run             # compile + flash over USB + logs
+uv run python scripts/build.py upload          # compile + OTA upload
+uv run python scripts/build.py logs            # serial/OTA logs
+uv run python scripts/build.py config          # dump the merged configuration
+uv run python scripts/build.py compile -s ha_light_entity light.other   # extra build flags
 ```
 
-`scripts/build.sh` picks a font that exists on this machine automatically
-(Liberation Sans on Linux, Arial on Windows/macOS) and regenerates
-`layout/generated/` first, so a stale header cannot be compiled by accident.
+`scripts/build.py` is the one entry point on Linux, Windows and macOS — the same
+file everywhere, with no batch-file variant to drift out of sync. It regenerates
+`layout/generated/` first, so a stale header cannot be compiled by accident, and
+on Windows it scrubs the MSys/Git-Bash environment that breaks the ESP-IDF
+toolchain before esphome starts.
 
-On Windows use `scripts\build.bat` (it wraps `scripts\run_esphome.bat`, which
-scrubs the MSys/Git-Bash environment that breaks the ESP-IDF toolchain).
+The fonts ship with the repository (`assets/fonts/`, SIL OFL 1.1), so nothing has
+to be installed on the host and every platform renders identical glyph metrics.
+Override with `-s font_regular <path> -s font_bold <path>` if you prefer your own.
 
 Raw ESPHome commands work too if you prefer:
 
@@ -54,7 +57,7 @@ credential-free release prototype, see [Serial provisioning](provisioning.md).
 cp secrets.example.yaml secrets.yaml
 #   wifi_ssid / wifi_password / ap_password
 #   api_encryption_key  ->  python -c "import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())"
-scripts/build.sh run
+uv run python scripts/build.py run
 ```
 
 `secrets.yaml` is git-ignored and never ships. There is no OTA password: OTA
@@ -65,7 +68,7 @@ saves ~3.5 KB of flash.
 ## Subsequent updates (OTA)
 
 ```bash
-scripts/build.sh upload
+uv run python scripts/build.py upload
 ```
 
 ## Recovery
@@ -76,7 +79,7 @@ If the panel cannot reach Wi-Fi it starts an access point called
 credentials, or flash over USB.
 
 If an OTA update ever bricks the panel, hold BOOT and re-flash over USB with
-`scripts/build.sh run`.
+`uv run python scripts/build.py run`.
 
 ## Build artifacts
 

@@ -1,5 +1,7 @@
 # Developer build: shared dashboard plus local credentials.
 # Use e1003-release.yaml for the credential-free provisioning proof.
+# Build on every platform with:
+#   uv run python scripts/build.py compile
 packages:
   dashboard: !include e1003-base.yaml
 

@@ -25,6 +25,8 @@ The generator fails the build on the mistakes that actually happen:
 * a hit box or card that extends past the canvas,
 * a font that is referenced but not declared (or declared but never used — each
   font bakes its whole glyph set into flash),
+* a font whose `file:` does not exist once `${font_regular}` / `${font_bold}` are
+  resolved against the entry-point YAML's `substitutions:`,
 * a field missing a font, alignment or anchor (gauges excepted),
 * a `sensor:`, `text:` or `control:` id that does not exist under `packages/`,
 * duplicate zone or field ids,

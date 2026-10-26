@@ -120,5 +120,5 @@ assets/original.png ────png_to_h.py─────> assets/dashboard_sta
 entry-point profile (+ e1003-base.yaml + packages/) ──> esphome compile ──> firmware
 ```
 
-Both generators are idempotent and safe to run on every build; `scripts/build.sh`
+Both generators are idempotent and safe to run on every build; `scripts/build.py`
 does exactly that.

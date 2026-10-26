@@ -150,7 +150,7 @@ recent Home Assistant (action responses over the ESPHome API).
 
 | Symptom | Check |
 |---------|-------|
-| Taps do nothing | `scripts/build.sh logs` — zone hits are logged as `zone 'light_50' op=1 target='...'`. An empty target means the runtime text entity is empty. |
+| Taps do nothing | `uv run python scripts/build.py logs` — zone hits are logged as `zone 'light_50' op=1 target='...'`. An empty target means the runtime text entity is empty. |
 | Card shows `Off 0%` while HA says otherwise | the state/value overrides are empty or stale; push them, or clear them to fall back |
 | Hook set but nothing happens | the hook must be a callable action string (`script.xxx`), and the script must not error — check HA's logbook for `script.e1003_zone` |
 | Ghosting after many partial refreshes | expected: the panel does a full GC16 refresh every `full_update_every` paints. Call `esphome.<device>_repaint` to force one |

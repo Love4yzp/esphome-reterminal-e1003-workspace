@@ -30,7 +30,7 @@ overridden from the command line. Useful for CI, for flashing several panels
 from one checkout, or for changing a pin without touching git:
 
 ```bash
-scripts/build.sh compile \
+uv run python scripts/build.py compile \
   -s device_name panel-kitchen \
   -s friendly_name "Kitchen Panel" \
   -s ha_light_entity light.kitchen_ceiling \
@@ -204,7 +204,7 @@ poll.
 ## Discovering the entity ids
 
 ```bash
-scripts/build.sh logs          # see the panel boot, confirm it connected
+uv run python scripts/build.py logs          # see the panel boot, confirm it connected
 ```
 Then in Home Assistant: **Settings → Devices & Services → ESPHome → your
 panel**. The text entities are listed under the device. Renaming the device in

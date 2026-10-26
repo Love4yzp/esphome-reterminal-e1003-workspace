@@ -12,6 +12,9 @@ An Espressif/ESPHome firmware template for the **reTerminal E1003** e-paper pane
 - Build-time validation for geometry boundaries, fonts, and entity IDs.
 - Onboard SHT4x temperature/humidity sensor and PCF8563 RTC with Home Assistant time sync.
 - Runtime retargeting of controls and card text via Home Assistant `text` entities without reflashing.
+- `uv`-managed, lockfile-pinned toolchain; one cross-platform build driver
+- Fonts vendored in `assets/fonts/` (SIL OFL 1.1): no host font required, and
+  identical glyph metrics on Linux, Windows and macOS
 
 ## Project structure
 
@@ -22,11 +25,11 @@ e1003-base.yaml                 # Shared defaults and package assembly
 layout/                         # UI layout, coordinates, touch zones, and fonts
 packages/                       # ESPHome packages (core, hardware, display, touch, ha-bridge)
 src/                            # C++ helpers such as bitmap decoding
-assets/                         # Design PNG and generated headers
+assets/                         # Design PNG, generated headers, and vendored fonts
 tools/                          # Layout compiler and bitmap conversion scripts
 ha/                             # Home Assistant package, routing script, and automations
 docs/                           # Detailed documentation
-scripts/                        # Build scripts for Linux, macOS, and Windows
+scripts/                        # Cross-platform build.py plus a shell wrapper
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the detailed firmware architecture and package breakdown.
@@ -50,12 +53,12 @@ Edit `secrets.yaml` to fill in your Wi-Fi credentials, fallback hotspot password
 Then compile and flash the firmware:
 
 ```bash
-scripts/build.sh run
+uv run python scripts/build.py run
 ```
 
-`scripts/build.sh` automatically runs `tools/layout_to_h.py` to generate layout headers before compiling, so there is no need to run the layout tool manually.
-
-The commands above are for Linux and macOS. On Windows, run `scripts/build.bat run`. See [docs/build-and-flash.md](docs/build-and-flash.md) for detailed build and flashing instructions.
+The build driver regenerates layout headers before compiling and runs identically
+on Linux, Windows, and macOS. See [docs/build-and-flash.md](docs/build-and-flash.md)
+for detailed build and flashing instructions.
 
 After flashing, add the device in Home Assistant (**Settings → Devices & Services → ESPHome**) and point a control at your target entity:
 

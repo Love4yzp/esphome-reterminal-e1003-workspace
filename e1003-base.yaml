@@ -59,11 +59,12 @@ substitutions:
   ha_light_action: light.turn_on
 
   # ---------------------------------------------------------------------------
-  # Fonts. Point these at any local TTF; Arial and Liberation Sans are
-  # metric-compatible, so the layout does not shift between Windows and Linux.
+  # Fonts ship with the repository (assets/fonts/, SIL OFL 1.1), so builds use
+  # identical glyph metrics on Linux, Windows and macOS without host setup.
+  # Override with `-s font_regular <path>` / `-s font_bold <path>` if needed.
   # ---------------------------------------------------------------------------
-  font_regular: "C:/Windows/Fonts/arial.ttf"
-  font_bold: "C:/Windows/Fonts/arialbd.ttf"
+  font_regular: "assets/fonts/LiberationSans-Regular.ttf"
+  font_bold: "assets/fonts/LiberationSans-Bold.ttf"
 
 # =============================================================================
 # PACKAGES

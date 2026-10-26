@@ -31,6 +31,10 @@ Read the relevant guide when changing these areas:
 
 Define screen coordinates, font sizes, and hit boxes in `layout/ui_layout.yaml`. Use generated `e1003::` constants in rendering code; do not hardcode pixel numbers in `packages/`.
 
+Keep the default `font_regular` and `font_bold` substitutions pointed at the
+vendored files in `assets/fonts/`. Host font paths make builds platform-specific
+and can change glyph metrics.
+
 Edit the source layout and regenerate `layout/generated/` with:
 
 ```bash
@@ -77,14 +81,17 @@ Install dependencies with `uv sync`. Run checks matching the files changed:
 |---|---|
 | Documentation only | Validate local Markdown links and file references; run `git diff --check`. Firmware compilation is unnecessary. |
 | Layout or `tools/layout_to_h.py` | Run `uv run python tools/layout_to_h.py --check`, regenerate outputs, inspect git diff, and run firmware checks below. |
-| Firmware YAML, C++ headers, or artwork | Run `scripts/build.sh config` and `scripts/build.sh compile`. |
+| Firmware YAML, C++ headers, or artwork | Run `uv run python scripts/build.py config` and `uv run python scripts/build.py compile`. |
 
-`layout_to_h.py --check` validates geometry and referenced IDs without checking whether generated files are up to date on disk. `scripts/build.sh` automatically regenerates layout files before running ESPHome. For Windows commands (`scripts/build.bat`), see [docs/build-and-flash.md](docs/build-and-flash.md).
+`layout_to_h.py --check` validates geometry and referenced IDs without checking
+whether generated files are up to date on disk. `scripts/build.py` automatically
+regenerates layout files before running ESPHome and is the same entry point on
+Linux, Windows, and macOS.
 
 Pass criteria:
 
-- `scripts/build.sh config` must succeed and report `Configuration is valid!`.
-- `scripts/build.sh compile` must succeed and report `Successfully compiled program.`.
+- `uv run python scripts/build.py config` must succeed and report `Configuration is valid!`.
+- `uv run python scripts/build.py compile` must succeed and report `Successfully compiled program.`.
 - No new compiler warnings.
 - No unexplained growth in RAM or flash usage compared with the prior build.
 

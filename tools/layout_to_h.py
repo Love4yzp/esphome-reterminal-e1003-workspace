@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import os
 import re
 import sys
 from pathlib import Path
@@ -129,6 +130,51 @@ def declared_ids() -> set[str]:
 
 
 # ---------------------------------------------------------------------------
+# font files
+# ---------------------------------------------------------------------------
+class _EntryLoader(yaml.SafeLoader):
+    """SafeLoader that tolerates ESPHome's custom tags."""
+
+
+# The entry-point YAML is full of `!include` and `!lambda`. Without this the
+# parse raises and the font check silently disables itself.
+_EntryLoader.add_multi_constructor("!", lambda loader, suffix, node: None)
+
+
+def entry_substitutions() -> dict[str, str]:
+    """`substitutions:` from the entry-point YAML, used to resolve font paths."""
+    path = REPO / os.environ.get("CONFIG", "e1003-dashboard.yaml")
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.load(path.read_text(), Loader=_EntryLoader) or {}
+    except yaml.YAMLError as exc:
+        print(f"warning: cannot read substitutions from {path.name}: {exc}", file=sys.stderr)
+        return {}
+    return data.get("substitutions") or {}
+
+
+def resolve_font_path(spec: str, substitutions: dict[str, str]) -> Path | None:
+    """Resolve a font `file:` to a real path, or None when it cannot be resolved.
+
+    An unknown substitution returns None rather than an error: ESPHome may be
+    handed the value on the command line, and a false failure is worse than
+    checking nothing.
+    """
+    expanded = spec
+    for name, value in substitutions.items():
+        expanded = expanded.replace(f"${{{name}}}", str(value))
+    if "${" in expanded:
+        return None
+
+    # "C:/..." is absolute but is not Path.is_absolute() on POSIX, so keep it
+    # whole instead of gluing it onto REPO.
+    if re.match(r"^[A-Za-z]:[\\/]", expanded) or Path(expanded).is_absolute():
+        return Path(expanded)
+    return REPO / expanded
+
+
+# ---------------------------------------------------------------------------
 # validation
 # ---------------------------------------------------------------------------
 def validate(cfg: dict) -> Problems:
@@ -140,9 +186,15 @@ def validate(cfg: dict) -> Problems:
         problems.add("meta.canvas", "width/height must be positive")
         return problems
 
+    substitutions = entry_substitutions()
     fonts = {f["id"] for f in cfg.get("fonts", [])}
     if not fonts:
         problems.add("fonts", "at least one font is required")
+    for font in cfg.get("fonts", []):
+        where = f"fonts[{font.get('id', '?')}]"
+        spec = font.get("file", "")
+        if (resolved := resolve_font_path(spec, substitutions)) and not resolved.is_file():
+            problems.add(where, f"font file '{spec}' does not exist ({resolved})")
 
     ids = declared_ids()
 

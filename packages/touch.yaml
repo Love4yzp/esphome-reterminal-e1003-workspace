@@ -25,6 +25,7 @@ touchscreen:
       - lambda: |-
           const int x = ${canvas_width} - touch.x;
           const int y = touch.y;
+          ESP_LOGI("e1003", "Touch x=%d y=%d", x, y);
 
           // Which runtime text entities hold the target/action for each
           // control declared in layout/ui_layout.yaml `runtime.controls`.
@@ -53,7 +54,7 @@ touchscreen:
               }
             }
 
-            ESP_LOGD("e1003", "zone '%s' op=%d target='%s'", zone.id,
+            ESP_LOGI("e1003", "zone '%s' op=%d target='%s'", zone.id,
                      (int) zone.op, target.c_str());
 
             id(zone_dispatch)->execute(

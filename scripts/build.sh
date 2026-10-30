@@ -46,6 +46,9 @@ elif [[ -f /usr/share/fonts/liberation/LiberationSans-Regular.ttf ]]; then
              -s font_bold /usr/share/fonts/liberation/LiberationSans-Bold.ttf)
 elif [[ -f /Library/Fonts/Arial.ttf ]]; then
   FONT_ARGS=(-s font_regular /Library/Fonts/Arial.ttf -s font_bold "/Library/Fonts/Arial Bold.ttf")
+elif [[ -f /System/Library/Fonts/Supplemental/Arial.ttf ]]; then
+  FONT_ARGS=(-s font_regular /System/Library/Fonts/Supplemental/Arial.ttf
+             -s font_bold "/System/Library/Fonts/Supplemental/Arial Bold.ttf")
 fi
 
 exec uv run esphome ${FONT_ARGS[@]+"${FONT_ARGS[@]}"} "$COMMAND" "$CONFIG" "$@"

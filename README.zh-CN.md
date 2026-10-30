@@ -16,7 +16,9 @@
 ## 目录结构
 
 ```
-e1003-dashboard.yaml            # 固件主入口配置（唯一需要烧录的文件）
+e1003-dashboard.yaml            # 开发者入口，使用本地凭据
+e1003-release.yaml              # 无用户凭据的 USB 配网验证版
+e1003-base.yaml                 # 两个入口共享的默认值与组件组合
 layout/                         # 屏幕布局、坐标尺寸、触摸热区与字体定义
 packages/                       # ESPHome 组件包（硬件、显示、触摸、状态与 HA 桥接）
 src/                            # C++ 辅助代码（位图解码等）
@@ -28,6 +30,8 @@ scripts/                        # Linux、macOS 与 Windows 构建脚本
 ```
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
+
+参考设计使用维护者预编译的单一 USB 固件，通过 App 配置 Wi-Fi 和灯光目标，参考固件不使用 API 密钥，也没有加密配置项。使用者不需要编辑 YAML 或编译固件，见[配置流程](docs/provisioning.md)。下方快速开始面向固件开发者。
 
 ## 快速开始
 

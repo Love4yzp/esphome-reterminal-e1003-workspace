@@ -25,7 +25,7 @@ widget toolkit.
 
 ## Tier 1 — build flags (no YAML editing, but a recompile)
 
-Every value in the `substitutions:` block of `e1003-dashboard.yaml` can be
+Every value in the `substitutions:` block of the shared `e1003-base.yaml` can be
 overridden from the command line. Useful for CI, for flashing several panels
 from one checkout, or for changing a pin without touching git:
 
@@ -41,11 +41,25 @@ Layout-derived values (`canvas_width`, `refresh_*`) are generated into
 `layout/generated/policy.yaml` and cannot be overridden this way — edit
 `layout/ui_layout.yaml` instead, which is the point.
 
+`e1003-dashboard.yaml` adds developer credentials to those shared defaults.
+The [release prototype](provisioning.md) overrides the device name and uses a
+MAC suffix. Its target starts empty, so buttons do nothing until configured;
+the unused fallback entity is `light.e1003_unconfigured`. Display state/value
+overrides keep the same empty-value fallback behavior. Serial Wi-Fi setup uses plaintext-only API access, with no key.
+Setup does not require a user secrets file. `firmware_version` defaults to `0.2.1`
+in the release profile and is build-time project metadata, not a runtime setting.
+
 ## Tier 2 — runtime text entities (no recompile, no reboot)
 
 `packages/ha-bridge.yaml` declares these. They are normal Home Assistant
 entities; `restore_value: true` means your settings survive reboots and OTA
 updates.
+
+Text settings are normally flushed to flash every 60 seconds. Allow at least
+65 seconds after a change before removing power or performing a hard reset.
+A live API readback confirms the current value, not completion of that flash
+write. The App waits before restarting and verifying the saved target; see
+[reference setup](provisioning.md).
 
 | Entity (suffix) | Default | Purpose |
 |-----------------|---------|---------|
@@ -159,7 +173,7 @@ the hook to go back to direct mode.
 | Target entity used as the *fallback* | ⚠️ recompile | `-s ha_light_entity=...` |
 | Number of buttons / cards | ❌ | design bitmap + `layout/ui_layout.yaml` |
 | Button positions, card geometry, fonts | ❌ | `layout/ui_layout.yaml` + `png_to_h.py` |
-| Hardware pins, panel model, board | ❌ | `e1003-dashboard.yaml` substitutions |
+| Hardware pins, panel model, board | ❌ | shared `e1003-base.yaml` substitutions |
 
 The dividing line is honest: **behaviour is runtime, design is compile-time.**
 Adding a sixth button means the artwork has to change anyway, and on e-paper the

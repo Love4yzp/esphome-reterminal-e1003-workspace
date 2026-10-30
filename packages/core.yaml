@@ -1,5 +1,5 @@
 # =============================================================================
-# CORE -- identity, platform, network, API, boot sequence
+# CORE -- identity, platform, logger, OTA, boot sequence
 # =============================================================================
 # Everything here is device-independent. Tune it from the entry-point YAML
 # (e1003-dashboard.yaml) or from the command line:
@@ -47,27 +47,7 @@ logger:
   hardware_uart: UART0
   level: ${log_level}
 
-# -----------------------------------------------------------------------------
-# Home Assistant Native API
-# -----------------------------------------------------------------------------
-api:
-  encryption:
-    key: !secret api_encryption_key
-
-# OTA reuses the API encryption key instead of a separate password: one
-# credential to rotate, and it saves ~3.5 KB of flash. A bare `encryption:`
-# block means "inherit the key from api: above".
+# Developer OTA inherits its API key; the release prototype removes this block.
 ota:
   - platform: esphome
     encryption:
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-
-  # Fallback access point when the configured Wi-Fi is unreachable.
-  ap:
-    ssid: ${ap_ssid}
-    password: !secret ap_password
-
-captive_portal:

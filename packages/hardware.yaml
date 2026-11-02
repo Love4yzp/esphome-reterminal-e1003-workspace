@@ -76,7 +76,6 @@ time:
 
   - platform: homeassistant
     id: ha_time
-    timezone: ${timezone}
 
     on_time_sync:
       then:

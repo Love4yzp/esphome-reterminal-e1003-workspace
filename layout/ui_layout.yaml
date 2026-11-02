@@ -53,18 +53,14 @@ fonts:
   - { id: font_number, file: "${font_bold}",    size: 110 }
 
 # -----------------------------------------------------------------------------
-# RUNTIME BINDINGS  (the "no recompile" layer)
+# SEMANTIC CONTROLS
 # -----------------------------------------------------------------------------
-# Each entry names ESPHome `text:` entities declared in packages/ha-bridge.yaml.
-# Home Assistant can set them at runtime; the firmware reads them on every draw.
-#
-#   target  entity_id to control            (e.g. light.desk / switch.pump)
-#   action  Home Assistant action to call   (e.g. light.turn_on)
-#   state   optional state override         ("on" / "off" / any text)
-#   value   optional value override         ("25" / "57" / any text)
-#
-# Empty string = fall back to the compile-time binding in packages/ha-bridge.yaml.
+# A control id connects cards and touch zones. ESPHome entity ids belong to the
+# interaction module, not to the geometry source.
 # -----------------------------------------------------------------------------
+controls:
+  - main_light
+
 runtime:
   message:
     # Shown in the clock card. Empty -> the firmware falls back to the local
@@ -72,22 +68,14 @@ runtime:
     text: cfg_message
     fallback: greeting
 
-  controls:
-    - id: main_light
-      target: cfg_target_main_light
-      action: cfg_action_main_light
-      state: cfg_state_main_light
-      value: cfg_value_main_light
-
 # -----------------------------------------------------------------------------
 # TOUCH ZONES
 # -----------------------------------------------------------------------------
 # op:
 #   toggle  call `homeassistant.toggle` on the control's runtime target
-#   call    call the control's runtime `action` on that target, passing `data`
+#   call    call light.turn_on on the runtime target, passing brightness data
 #   script  call the global runtime script hook with {zone, control}
-# Every press, whatever the op, also calls the global script hook so Home
-# Assistant automations always see the raw event.
+# When the global hook is set, it replaces direct mode for every zone.
 # -----------------------------------------------------------------------------
 zones:
   - id: light_toggle
@@ -134,7 +122,7 @@ zones:
 #   rtc      local PCF8563 time (short form)
 #   sensor   local sensor id declared in packages/hardware.yaml
 #   text     a runtime `text:` entity (see runtime:)
-#   light    the control's state/value (runtime override + compile-time default)
+#   light    the control's state/value supplied through runtime text entities
 # -----------------------------------------------------------------------------
 cards:
   clock:

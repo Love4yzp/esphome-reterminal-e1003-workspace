@@ -1,0 +1,27 @@
+# Optional personal-profile adapter.
+#
+# ESPHome requires Home Assistant entity ids to be compile-time literals. This
+# adapter mirrors the personal profile's default light into the runtime text
+# state consumed by the UI. The factory profile omits it and uses HA-side push.
+
+sensor:
+  - platform: homeassistant
+    id: ha_light_brightness
+    entity_id: ${default_light_target}
+    attribute: brightness
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            const int pct = (int) round(x / 255.0f * 100.0f);
+            id(cfg_value_main_light).publish_state(std::to_string(pct));
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_light_state
+    entity_id: ${default_light_target}
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            id(cfg_state_main_light).publish_state(x);

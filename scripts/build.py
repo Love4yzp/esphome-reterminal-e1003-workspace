@@ -9,7 +9,7 @@ One entry point for Linux, Windows and macOS -- there is no `build.sh` /
     uv run python scripts/build.py run             # compile + flash + logs
     uv run python scripts/build.py upload          # compile + OTA upload
     uv run python scripts/build.py logs            # serial/OTA logs
-    uv run python scripts/build.py compile -s ha_light_entity light.other
+    uv run python scripts/build.py compile -s default_light_target light.other
 
 Anything after the subcommand is forwarded to esphome verbatim, so `-s key
 value` build flags still work.

@@ -5,8 +5,7 @@ packages:
 substitutions:
   device_name: reterminal-e1003
   firmware_version: "0.2.1"
-  # State is supplied at runtime; this unused fallback never targets a real lamp.
-  ha_light_entity: light.e1003_unconfigured
+  default_light_target: ""
 
 esphome:
   name_add_mac_suffix: true
@@ -18,10 +17,6 @@ esphome:
 # The developer entry point keeps its separate encrypted API configuration.
 api:
   reboot_timeout: 0s
-
-# The pinned OTA schema cannot require a runtime-provisioned API key yet.
-# Keep this proof USB-only until authenticated OTA is verified.
-ota: !remove
 
 wifi:
   # Keep the device available for USB setup even after the setup window expires.

@@ -1,39 +1,14 @@
 # =============================================================================
-# CORE -- identity, platform, logger, OTA, boot sequence
+# CORE -- identity and ESP32 platform
 # =============================================================================
-# Everything here is device-independent. Tune it from the entry-point YAML
-# (e1003-dashboard.yaml) or from the command line:
+# Network and security belong to the selected entry-point profile. Tune common
+# values from packages/defaults.yaml or from the command line:
 #     uv run esphome -s device_name my-panel compile e1003-dashboard.yaml
 # =============================================================================
 
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
-
-  # Files are copied into the build's src/ directory and included by basename.
-  # Order matters: the bitmap first, then the header that consumes it.
-  includes:
-    - assets/dashboard_static_v4.h
-    - layout/generated/ui_layout.h
-    - src/e1003_render.h
-
-  on_boot:
-    priority: -100
-    then:
-      # Prime the local sensors before the first paint so the dashboard never
-      # flashes "--" at the user.
-      - component.update: sht4x_sensor
-      - pcf8563.read_time:
-      - delay: 3s
-
-      # First paint is always a full 16-level grayscale refresh.
-      - lambda: |-
-          id(ui_full_redraw) = true;
-      - it8951.update:
-          id: epaper_display
-          mode: ${refresh_boot_mode}
-      - lambda: |-
-          id(ui_ready) = true;
 
 esp32:
   board: ${board}
@@ -46,8 +21,3 @@ psram:
 logger:
   hardware_uart: UART0
   level: ${log_level}
-
-# Developer OTA inherits its API key; the release prototype removes this block.
-ota:
-  - platform: esphome
-    encryption:

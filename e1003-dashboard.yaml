@@ -1,19 +1,29 @@
 # Developer build: shared dashboard plus local credentials.
-# Use e1003-release.yaml for the credential-free provisioning proof.
+# Use e1003-release.yaml for the keyless USB reference profile or
+# e1003-factory.yaml for the public browser-install profile.
 # Build on every platform with:
 #   uv run python scripts/build.py compile
+
+substitutions:
+  default_light_target: light.deskside_lamp
+
 packages:
   dashboard: !include e1003-base.yaml
+  direct_state: !include packages/ha-direct-state.yaml
 
 api:
   encryption:
     key: !secret api_encryption_key
 
+ota:
+  - platform: esphome
+    encryption:
+
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   ap:
-    ssid: ${ap_ssid}
+    ssid: ${recovery_ap_ssid}
     password: !secret ap_password
 
 captive_portal:

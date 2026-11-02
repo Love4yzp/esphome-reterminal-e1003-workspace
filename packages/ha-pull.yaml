@@ -11,7 +11,7 @@
 # without recompiling the firmware:
 #
 #   PUSH (no extra package)  Home Assistant calls text.set_value on the panel's
-#                            own text entities (see packages/ha-bridge.yaml).
+#                            own text entities (see packages/interaction.yaml).
 #                            Event driven, zero polling, cheapest.
 #
 #   PULL (this package)      The panel calls a Home Assistant action and reads

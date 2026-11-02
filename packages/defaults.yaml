@@ -1,0 +1,26 @@
+# Shared substitutions for both firmware profiles.
+substitutions:
+  device_name: reterminal-e1003-ha
+  friendly_name: "E1003 Smart Workspace"
+
+  board: seeed_xiao_esp32s3
+  epaper_model: seeed-reterminal-e1003
+  pin_epaper_clk: GPIO7
+  pin_epaper_mosi: GPIO9
+  pin_epaper_miso: GPIO8
+  pin_i2c_scl: GPIO20
+  pin_i2c_sda: GPIO19
+  pin_buzzer: GPIO45
+  pin_touch_int: GPIO2
+  pin_touch_rst: GPIO48
+
+  log_level: INFO
+  beep_brightness: "50%"
+  beep_duration: 80ms
+  recovery_ap_ssid: "E1003-Recovery"
+
+  # Empty in the factory profile. The personal profile overrides it.
+  default_light_target: ""
+
+  font_regular: "assets/fonts/LiberationSans-Regular.ttf"
+  font_bold: "assets/fonts/LiberationSans-Bold.ttf"

@@ -1,81 +1,8 @@
-# =============================================================================
-# reTerminal E1003 -- e-paper dashboard for Home Assistant
-# =============================================================================
-# Shared defaults and package assembly for the developer and release builds:
-#
-#   packages/core.yaml        identity, ESP32, logger, OTA, boot sequence
-#   packages/hardware.yaml    SPI/I2C buses, buzzer, SHT4x, PCF8563 RTC
-#   packages/display.yaml     IT8951 panel + the render pass
-#   packages/ui-state.yaml    dirty flags + the ui_refresh / ui_beep scripts
-#   packages/touch.yaml       GT911 + generic touch zone dispatch
-#   packages/ha-bridge.yaml   the runtime (no-recompile) HA configuration layer
-#
-# Screen geometry, fonts and touch hit boxes are NOT here: they live in
-# layout/ui_layout.yaml and are compiled into layout/generated/.
-#
-# Build through e1003-dashboard.yaml or e1003-release.yaml.
-# =============================================================================
-
-substitutions:
-  # ---------------------------------------------------------------------------
-  # Identity -- shown in Home Assistant. Renaming this makes HA treat the
-  # panel as a new device, so set it once.
-  # ---------------------------------------------------------------------------
-  device_name: reterminal-e1003-ha
-  friendly_name: "E1003 Smart Workspace"
-
-  # ---------------------------------------------------------------------------
-  # Board and wiring (reTerminal E1003 + Seeed XIAO ESP32-S3)
-  # Override for a different carrier with `-s pin_... GPIO...`
-  # ---------------------------------------------------------------------------
-  board: seeed_xiao_esp32s3
-  epaper_model: seeed-reterminal-e1003
-  pin_epaper_clk: GPIO7
-  pin_epaper_mosi: GPIO9
-  pin_epaper_miso: GPIO8
-  pin_i2c_scl: GPIO20
-  pin_i2c_sda: GPIO19
-  pin_buzzer: GPIO45
-  pin_touch_int: GPIO2
-  pin_touch_rst: GPIO48
-
-  # ---------------------------------------------------------------------------
-  # Locale and behaviour
-  # ---------------------------------------------------------------------------
-  timezone: Asia/Shanghai
-  log_level: INFO
-  beep_brightness: "50%"
-  beep_duration: 80ms
-  ap_ssid: "E1003-Recovery"
-
-  # ---------------------------------------------------------------------------
-  # Compile-time Home Assistant defaults
-  #
-  # These are only the *fallback* bindings. At runtime the panel uses the
-  # text entities in packages/ha-bridge.yaml, which Home Assistant can change
-  # without reflashing anything.
-  # ---------------------------------------------------------------------------
-  ha_light_entity: light.deskside_lamp
-  ha_light_action: light.turn_on
-
-  # ---------------------------------------------------------------------------
-  # Fonts ship with the repository (assets/fonts/, SIL OFL 1.1), so builds use
-  # identical glyph metrics on Linux, Windows and macOS without host setup.
-  # Override with `-s font_regular <path>` / `-s font_bold <path>` if needed.
-  # ---------------------------------------------------------------------------
-  font_regular: "assets/fonts/LiberationSans-Regular.ttf"
-  font_bold: "assets/fonts/LiberationSans-Bold.ttf"
-
-# =============================================================================
-# PACKAGES
-# =============================================================================
+# Shared package assembly for developer, reference, and factory profiles.
 packages:
-  # Generated from layout/ui_layout.yaml -- canvas size, refresh policy.
+  defaults: !include packages/defaults.yaml
   policy: !include layout/generated/policy.yaml
-
   core: !include packages/core.yaml
   hardware: !include packages/hardware.yaml
-  display: !include packages/display.yaml
-  ui_state: !include packages/ui-state.yaml
-  touch: !include packages/touch.yaml
-  ha_bridge: !include packages/ha-bridge.yaml
+  ui: !include packages/ui.yaml
+  interaction: !include packages/interaction.yaml

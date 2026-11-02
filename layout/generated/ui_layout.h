@@ -5,7 +5,7 @@
 //
 // source : layout/ui_layout.yaml
 // tool   : tools/layout_to_h.py
-// built  : 2026-10-26 17:11:42
+// built  : 2026-11-01 19:38:52
 // ============================================================
 
 #include <cstdint>
@@ -41,14 +41,7 @@ static constexpr uint8_t SOURCE_TEXT = 3;
 static constexpr uint8_t SOURCE_LIGHT_STATE = 4;
 static constexpr uint8_t SOURCE_LIGHT_VALUE = 5;
 
-// ---- runtime control ids -------------------------------------
 enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT };
-
-struct Control { const char *id; };
-static constexpr Control CONTROLS[] = {
-  {"main_light"},
-};
-static constexpr size_t CONTROL_COUNT = 1;
 
 // ---- touch zones ---------------------------------------------
 struct Zone {

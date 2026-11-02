@@ -1,17 +1,90 @@
 # =============================================================================
-# DISPLAY -- IT8951 e-paper panel + the render pass
-# =============================================================================
-# The panel is 1872x1404, 16-level grayscale. The static design is a compressed
-# bitmap; only the cards declared in layout/ui_layout.yaml are repainted.
-#
-# This lambda contains no pixel numbers. Every coordinate, font choice, text
-# alignment and format string comes from the generated header:
-#     layout/generated/ui_layout.h  <-  layout/ui_layout.yaml
-# Regenerate it with:  uv run python tools/layout_to_h.py
+# UI -- boot paint, refresh state machine and IT8951 render pass
 # =============================================================================
 
-# The font list is generated from the layout file's `fonts:` block so that the
-# two can never drift apart.
+esphome:
+  # Files are copied into the build's src/ directory and included by basename.
+  # Order matters: the bitmap first, then the header that consumes it.
+  includes:
+    - assets/dashboard_static_v4.h
+    - layout/generated/ui_layout.h
+    - src/e1003_render.h
+
+  on_boot:
+    priority: -100
+    then:
+      - component.update: sht4x_sensor
+      - pcf8563.read_time:
+      - delay: 3s
+      - lambda: |-
+          id(ui_full_redraw) = true;
+      - it8951.update:
+          id: epaper_display
+          mode: ${refresh_boot_mode}
+      - lambda: |-
+          id(ui_ready) = true;
+
+globals:
+  - id: ui_ready
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ui_full_redraw
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+
+  - id: ui_time_dirty
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ui_env_dirty
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ui_light_dirty
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+script:
+  # Sources mark a card dirty and call this script. Restart mode merges bursts
+  # into one partial panel refresh.
+  - id: ui_refresh
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(ui_ready) && !id(ui_full_redraw);
+          then:
+            - delay: ${refresh_settle_delay}
+            - it8951.update:
+                id: epaper_display
+                mode: ${refresh_partial_mode}
+
+  - id: ui_beep
+    mode: restart
+    then:
+      - light.turn_on:
+          id: ui_buzzer
+          brightness: ${beep_brightness}
+      - delay: ${beep_duration}
+      - light.turn_off: ui_buzzer
+
+  - id: ui_repaint
+    mode: restart
+    then:
+      - lambda: |-
+          id(ui_full_redraw) = true;
+      - it8951.update:
+          id: epaper_display
+          mode: ${refresh_boot_mode}
+
+# The font list is generated from layout/ui_layout.yaml.
 packages:
   fonts: !include ../layout/generated/fonts.yaml
 
@@ -21,17 +94,13 @@ display:
     spi_id: epaper_spi_bus
     model: ${epaper_model}
 
-    # The render pass is driven by the dirty flags, never by a timer.
     update_interval: never
     auto_clear_enabled: false
-
     grayscale: true
     dithering: false
-
     update_mode: ${refresh_boot_mode}
     full_update_every: ${refresh_full_update_every}
 
-    # The E1003 ribbon is mounted upside down relative to the touch panel.
     transform:
       mirror_x: true
       mirror_y: false
@@ -41,9 +110,6 @@ display:
       static const Color WHITE = Color::WHITE;
       const Color G3 = Color(e1003::G3, e1003::G3, e1003::G3);
 
-      // -----------------------------------------------------------------------
-      // helpers
-      // -----------------------------------------------------------------------
       auto clear = [&](const e1003::Rect &r) {
         it.filled_rectangle(r.x, r.y, r.w, r.h, WHITE);
       };
@@ -58,31 +124,21 @@ display:
         return value;
       };
 
-      // -----------------------------------------------------------------------
-      // the light card: runtime override first, compile-time binding as fallback
-      // -----------------------------------------------------------------------
+      auto light_configured = [&]() -> bool {
+        return !id(cfg_target_main_light).state.empty();
+      };
+
       auto light_on = [&]() -> bool {
-        const std::string override_state = id(cfg_state_main_light).state;
-        if (!override_state.empty()) {
-          return override_state == "on";
-        }
-        return id(ha_light_state).has_state() && id(ha_light_state).state == "on";
+        return id(cfg_state_main_light).state == "on";
       };
 
       auto light_pct = [&]() -> int {
-        const std::string override_value = id(cfg_value_main_light).state;
-        int value = -1;
-        if (!override_value.empty()) {
-          value = parse_uint(override_value);
-        } else if (id(ha_light_brightness).has_state() && !isnan(id(ha_light_brightness).state)) {
-          value = (int) round(id(ha_light_brightness).state / 255.0f * 100.0f);
-        }
-        if (value < 0) return 0;
-        if (value > 100) return 100;
-        return value;
+        const std::string value_text = id(cfg_value_main_light).state;
+        if (value_text.empty()) return 0;
+        const int value = parse_uint(value_text);
+        return value > 100 ? 100 : value;
       };
 
-      // The clock card message: HA text override, otherwise a local greeting.
       auto clock_message = [&]() -> std::string {
         const std::string override_message = id(cfg_message).state;
         if (!override_message.empty()) {
@@ -95,9 +151,6 @@ display:
                              : "Good Evening";
       };
 
-      // -----------------------------------------------------------------------
-      // cards
-      // -----------------------------------------------------------------------
       auto draw_clock = [&]() {
         clear(e1003::CLOCK_CLEAR);
 
@@ -147,17 +200,19 @@ display:
       };
 
       auto draw_light = [&]() {
+        const bool configured = light_configured();
         const bool on = light_on();
         const int pct = light_pct();
 
         clear(e1003::LIGHT_STATE_TEXT_CLEAR);
         it.printf(e1003::LIGHT_STATE_TEXT_ANCHOR.x, e1003::LIGHT_STATE_TEXT_ANCHOR.y,
                   id(font_medium), BLACK,
-                  e1003::LIGHT_STATE_TEXT_ALIGN, "%s", on ? "On" : "Off");
+                  e1003::LIGHT_STATE_TEXT_ALIGN, "%s",
+                  configured ? (on ? "On" : "Off") : "Setup");
 
         clear(e1003::LIGHT_BUTTON_CLEAR);
         const e1003::Rect button = e1003::LIGHT_BUTTON_FILL;
-        if (on) {
+        if (configured && on) {
           it.filled_rectangle(button.x, button.y, button.w, button.h, BLACK);
           it.printf(e1003::LIGHT_BUTTON_ANCHOR.x, e1003::LIGHT_BUTTON_ANCHOR.y,
                     id(font_large), WHITE,
@@ -166,18 +221,24 @@ display:
           it.rectangle(button.x, button.y, button.w, button.h, G3);
           it.printf(e1003::LIGHT_BUTTON_ANCHOR.x, e1003::LIGHT_BUTTON_ANCHOR.y,
                     id(font_large), BLACK,
-                    e1003::LIGHT_BUTTON_ALIGN, "%s", "Off");
+                    e1003::LIGHT_BUTTON_ALIGN, "%s", configured ? "Off" : "--");
         }
 
         clear(e1003::LIGHT_VALUE_CLEAR);
-        it.printf(e1003::LIGHT_VALUE_ANCHOR.x, e1003::LIGHT_VALUE_ANCHOR.y,
-                  id(font_medium), BLACK,
-                  e1003::LIGHT_VALUE_ALIGN, e1003::LIGHT_VALUE_FORMAT, pct);
+        if (configured) {
+          it.printf(e1003::LIGHT_VALUE_ANCHOR.x, e1003::LIGHT_VALUE_ANCHOR.y,
+                    id(font_medium), BLACK,
+                    e1003::LIGHT_VALUE_ALIGN, e1003::LIGHT_VALUE_FORMAT, pct);
+        } else {
+          it.printf(e1003::LIGHT_VALUE_ANCHOR.x, e1003::LIGHT_VALUE_ANCHOR.y,
+                    id(font_medium), BLACK,
+                    e1003::LIGHT_VALUE_ALIGN, "%s", "--");
+        }
 
         clear(e1003::LIGHT_BAR_CLEAR);
         const e1003::Rect track = e1003::LIGHT_BAR_TRACK;
         const int filled = track.w * pct / 100;
-        if (filled > 0) {
+        if (configured && filled > 0) {
           it.filled_rectangle(track.x, track.y, filled, track.h, BLACK);
         }
       };
@@ -193,9 +254,6 @@ display:
         }
       };
 
-      // -----------------------------------------------------------------------
-      // render pass
-      // -----------------------------------------------------------------------
       if (id(ui_full_redraw)) {
         e1003::draw_rle_bitmap(it);
         draw_clock();

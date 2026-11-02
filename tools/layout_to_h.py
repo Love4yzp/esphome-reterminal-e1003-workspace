@@ -36,6 +36,7 @@ HEADER_OUT = GEN_DIR / "ui_layout.h"
 FONTS_OUT = GEN_DIR / "fonts.yaml"
 POLICY_OUT = GEN_DIR / "policy.yaml"
 PACKAGES_DIR = REPO / "packages"
+DEFAULTS_FILE = PACKAGES_DIR / "defaults.yaml"
 
 ALIGN_MAP = {
     "top_left": "TOP_LEFT",
@@ -142,16 +143,25 @@ _EntryLoader.add_multi_constructor("!", lambda loader, suffix, node: None)
 
 
 def entry_substitutions() -> dict[str, str]:
-    """`substitutions:` from the entry-point YAML, used to resolve font paths."""
+    """Merged shared defaults and entry-point substitutions."""
+    substitutions: dict[str, str] = {}
+    if DEFAULTS_FILE.is_file():
+        try:
+            defaults = yaml.safe_load(DEFAULTS_FILE.read_text()) or {}
+            substitutions.update(defaults.get("substitutions") or {})
+        except yaml.YAMLError as exc:
+            print(f"warning: cannot read substitutions from {DEFAULTS_FILE.name}: {exc}", file=sys.stderr)
+
     path = REPO / os.environ.get("CONFIG", "e1003-dashboard.yaml")
     if not path.is_file():
-        return {}
+        return substitutions
     try:
         data = yaml.load(path.read_text(), Loader=_EntryLoader) or {}
     except yaml.YAMLError as exc:
         print(f"warning: cannot read substitutions from {path.name}: {exc}", file=sys.stderr)
-        return {}
-    return data.get("substitutions") or {}
+        return substitutions
+    substitutions.update(data.get("substitutions") or {})
+    return substitutions
 
 
 def resolve_font_path(spec: str, substitutions: dict[str, str]) -> Path | None:
@@ -198,18 +208,10 @@ def validate(cfg: dict) -> Problems:
 
     ids = declared_ids()
 
-    controls = {}
+    controls = set(cfg.get("controls", []))
     runtime = cfg.get("runtime", {})
-    for control in runtime.get("controls", []):
-        for key, value in control.items():
-            if key == "id":
-                continue
-            if value not in ids:
-                problems.add(
-                    f"runtime.controls[{control.get('id')}].{key}",
-                    f"'{value}' is not declared as a text id under packages/",
-                )
-        controls[control["id"]] = control
+    if len(controls) != len(cfg.get("controls", [])):
+        problems.add("controls", "control ids must be unique")
 
     for key in ("text",):
         if (value := runtime.get("message", {}).get(key)) and value not in ids:
@@ -307,7 +309,6 @@ def emit_header(cfg: dict) -> str:
     canvas = cfg["meta"]["canvas"]
     bitmap = cfg["bitmap"]
     palette = cfg.get("palette", {})
-    runtime = cfg.get("runtime", {})
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     out: list[str] = []
@@ -351,15 +352,7 @@ def emit_header(cfg: dict) -> str:
     for index, name in enumerate(SOURCE_MAP.values()):
         add(f"static constexpr uint8_t SOURCE_{name} = {index};")
     add("")
-    add("// ---- runtime control ids -------------------------------------")
     add("enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT };")
-    add("")
-    add("struct Control { const char *id; };")
-    add("static constexpr Control CONTROLS[] = {")
-    for control in runtime.get("controls", []):
-        add(f"  {{{c_string(control['id'])}}},")
-    add("};")
-    add(f"static constexpr size_t CONTROL_COUNT = {len(runtime.get('controls', []))};")
     add("")
     add("// ---- touch zones ---------------------------------------------")
     add("struct Zone {")
@@ -480,17 +473,9 @@ def print_map(cfg: dict) -> None:
             f"{zone['op']} | {zone.get('control') or '-'} | {data} |"
         )
 
-    print("\nruntime text entities (set these from Home Assistant):\n")
-    print("| entity | default | purpose |")
-    print("|--------|---------|---------|")
-    message = cfg["runtime"].get("message", {}).get("text")
-    if message:
-        print(f"| `text.{message}` | local greeting | clock card message |")
-    for control in cfg["runtime"].get("controls", []):
-        print(f"| `text.{control['target']}` | ${control['id']} default | entity_id to control |")
-        print(f"| `text.{control['action']}` | `light.turn_on` | action used by `call` zones |")
-        print(f"| `text.{control['state']}` | compile-time binding | card state override |")
-        print(f"| `text.{control['value']}` | compile-time binding | card value override |")
+    print("\ncontrols:\n")
+    for control in cfg.get("controls", []):
+        print(f"- `{control}`")
 
 
 def main() -> int:

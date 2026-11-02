@@ -6,18 +6,18 @@ These instructions apply throughout this repository.
 
 ESPHome firmware for a reTerminal E1003 e-paper dashboard on a Seeed XIAO ESP32-S3. A design PNG provides the static UI; dynamic cards update via partial refreshes; GT911 touch zones call Home Assistant actions.
 
-Keep control targets, actions, and card text configurable at runtime. The Home Assistant package in `ha/` is a sample, not a supported integration. Design tooling, MQTT, a web server, and LVGL are out of scope.
+Keep control targets, actions, and card text configurable at runtime. The Home Assistant package in `ha/` is a sample, not a supported integration. Design tooling, MQTT, a general-purpose web UI, and LVGL are out of scope; the factory captive portal is the provisioning exception.
 
 ## Where to make changes
 
 | Concern | File |
 |---|---|
-| Device identity, pins, fonts, timezone, compile-time defaults | `e1003-dashboard.yaml` |
+| Shared identity, pins, fonts, and defaults | `packages/defaults.yaml` |
+| Profile-specific network, API, OTA, and target defaults | `e1003-dashboard.yaml`, `e1003-release.yaml`, `e1003-factory.yaml` |
 | Screen geometry, font sizes, touch zones, cards, refresh policy | `layout/ui_layout.yaml` |
-| Runtime text settings, Home Assistant state imports | `packages/ha-bridge.yaml` |
-| Touch dispatch, control bindings | `packages/touch.yaml` |
-| Dirty flags, refresh scripts | `packages/ui-state.yaml` |
-| Panel rendering, reusable drawing helpers | `packages/display.yaml`, `src/e1003_render.h` |
+| Runtime text settings and touch dispatch | `packages/interaction.yaml` |
+| Optional fixed Home Assistant state import | `packages/ha-direct-state.yaml` |
+| Dirty flags, refresh scripts, and panel rendering | `packages/ui.yaml`, `src/e1003_render.h` |
 
 Read the relevant guide when changing these areas:
 
@@ -59,15 +59,19 @@ Dynamic card updates must follow this contract:
 2. `ui_refresh` debounces burst updates and triggers the partial panel refresh.
 3. The display lambda repaints the dirty card and clears its dirty flag.
 
-Never call `it8951.update` directly from a data source. When adding a dynamic card: define its rectangle in the layout, declare its dirty flag in `packages/ui-state.yaml`, and render it in both full and partial draw paths. Clear the card's bounding box before drawing new text.
+Never call `it8951.update` directly from a data source. When adding a dynamic card: define its rectangle in the layout, declare its dirty flag in `packages/ui.yaml`, and render it in both full and partial draw paths. Clear the card's bounding box before drawing new text.
 
 Preserve the hardware-verified touch conversion `x = <canvas width> - touch.x` and `transform.mirror_x: true` on the display and touchscreen. Touch zone coordinates use this converted space. Change these only when the task calls for correcting the transform and real-panel testing is available.
 
-Add touch zones to the layout's `zones:` table. A new control also requires its four text entity IDs in `runtime.controls`, declarations in `packages/ha-bridge.yaml`, and one row in the `BINDINGS` table in `packages/touch.yaml` (ESPHome resolves `id()` at compile time).
+Add touch zones to the layout's `zones:` table. A new control also requires a
+top-level semantic control id, runtime text entities in
+`packages/interaction.yaml`, and direct-mode behavior there.
 
 ## Runtime configuration and style
 
-Put compile-time entity IDs, action names, and display defaults in entry-point substitutions. Expose runtime settings as `text` entities in `packages/ha-bridge.yaml` rather than hardcoding them in packages.
+Put board-wide defaults in `packages/defaults.yaml`, profile-specific values in
+entry-point substitutions, and runtime settings in the `text` entities declared
+by `packages/interaction.yaml`.
 
 For a new runtime setting, use a `cfg_<thing>` ID, `optimistic: true`, `restore_value: true`, and an appropriate `initial_value`. Reference it from the layout's `runtime:` section where applicable so `layout_to_h.py` can validate its ID. Empty overrides must preserve the existing fallback behavior. Document the setting, its default, and its fallback in `docs/configuration.md`.
 

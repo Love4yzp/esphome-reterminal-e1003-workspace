@@ -5,7 +5,7 @@
 //
 // source : layout/ui_layout.yaml
 // tool   : tools/layout_to_h.py
-// built  : 2026-11-01 23:50:51
+// built  : 2026-11-02 00:00:02
 // ============================================================
 
 #include <cstdint>

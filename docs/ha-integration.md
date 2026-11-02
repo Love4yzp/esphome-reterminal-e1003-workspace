@@ -29,8 +29,8 @@ Home Assistant creates names based on the device name. Look them up in
 | Entity suffix | Direction | Purpose |
 |---|---|---|
 | `temperature`, `humidity` | panel → HA | onboard SHT4x |
-| `zone_script_hook` | HA → panel | empty for direct mode; script/action for hook mode |
-| `clock_message` | HA → panel | optional banner |
+| `zone_script_hook` | HA → panel | empty for direct light mode; action for custom light routing |
+| `reachy_script_hook` | HA → panel | action for the six Reachy scene tiles |
 | `main_light_target` | HA → panel | runtime target entity id |
 | `main_light_state` | HA → panel | card state |
 | `main_light_value` | HA → panel | card brightness, `0`–`100` |
@@ -52,43 +52,43 @@ user Wi-Fi, API key or entity id is published in the release image.
 
 ## Direct and hook routing
 
-Direct mode is active when `zone_script_hook` is empty. The toggle zone uses
-`homeassistant.toggle`; percentage zones use `light.turn_on`.
+Direct mode is active when `zone_script_hook` is empty. ON and OFF call
+`light.turn_on` and `light.turn_off`; percentage zones use `light.turn_on`.
 
 For custom behavior, set the hook to an HA action such as
 `script.e1003_zone`. The panel passes `{zone, control, data_name, data_value}`
 and skips all built-in routing. `ha/e1003_dashboard.yaml` contains an editable
 example package.
 
-## Push arbitrary display content
+Reachy routing is intentionally separate. Set `reachy_script_hook` to an HA
+action such as `script.e1003_reachy`. Each touch passes:
 
-The banner and light display values are normal `text` entities:
+- `zone`: the full zone id, such as `reachy_retail_intro`;
+- `action`: `retail_intro`, `space_intro`, `rescue_intro`, `stop`, `wake`, or
+  `language`.
 
-```yaml
-automation:
-  - alias: "E1003 banner"
-    triggers:
-      - trigger: time_pattern
-        minutes: "/10"
-    actions:
-      - action: text.set_value
-        target:
-          entity_id: text.<panel>_clock_message
-        data:
-          value: >-
-            {{ state_attr('weather.home', 'temperature') }}°C ·
-            {{ states('weather.home') }}
-```
+Reachy touches always beep. They do not redraw the e-paper display.
 
-Use PUSH unless polling is required. To enable the optional PULL channel, add
-`ha_pull: !include packages/ha-pull.yaml` to the personal profile, rebuild, and
-configure its action/template text entities.
+## Network card and Last Update
+
+The right-side status card is event driven:
+
+| State | Network role/name | Detail |
+|---|---|---|
+| `READY` | connected station SSID | Home Assistant connected/waiting |
+| `CONNECTING` | saved Wi-Fi search | fallback AP will start |
+| `SETUP WI-FI` | active AP SSID | open `192.168.4.1` |
+| `SETUP WI-FI` on release profile | USB setup | use Improv over USB |
+
+When the fallback AP is active it takes display priority, so the shown SSID is
+the network the user must join. `Last Update` in the footer is repainted only
+when the panel really renders another card.
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| card says `Setup` | `main_light_target` is empty; create the blueprint automation or set it manually |
+| no ON/OFF segment is selected | `main_light_target` or mirrored state is empty; create the blueprint automation or set it manually |
 | touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
 | fallback hotspot is unavailable | the 15-minute provisioning window may have closed; reboot the panel |

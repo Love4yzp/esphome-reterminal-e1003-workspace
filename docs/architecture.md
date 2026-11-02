@@ -76,7 +76,8 @@ protocol:
 `ui_refresh` exists for a reason: the SHT4x publishes temperature and humidity a
 few milliseconds apart, and a Home Assistant state burst can arrive as several
 API messages. `mode: restart` collapses them into one panel refresh instead of
-three.
+three. Network connectivity is sampled every five seconds, but it marks the
+network card dirty only when its visible state changes.
 
 Never call `it8951.update` directly from a data source. If you add a card:
 
@@ -104,10 +105,12 @@ do not "fix" the mirroring formula.
 | Mode | Cost | Used for |
 |------|------|----------|
 | `GC16` | full panel, slow, 16 gray levels | boot paint, and every `full_update_every` refreshes to clear ghosting |
-| `DU` | local bounding box, fast, 2 levels | clock, environment numbers, light card, footer |
+| `DU` | local bounding box, fast, 2 levels | network status, environment numbers, light card, footer |
 
 `update_interval: never` on the display component is intentional: the render
-pass only runs when the firmware asks for it. Nothing repaints on a timer.
+pass only runs when the firmware asks for it. The SHT4x is sampled every ten
+minutes; there is no minute clock refresh. The footer time is painted during a
+real render and therefore means **Last Update**, not current wall-clock time.
 
 ## Build pipeline
 

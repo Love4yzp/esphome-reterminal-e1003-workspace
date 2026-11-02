@@ -64,10 +64,10 @@ write. The App waits before restarting and verifying the saved target; see
 
 | Entity suffix | Empty/default behavior | Purpose |
 |---|---|---|
-| `zone_script_hook` | empty: use direct mode | optional HA action called for every zone |
-| `clock_message` | empty: local time-of-day greeting | clock card banner |
+| `zone_script_hook` | empty: use direct light mode | optional HA action called for light zones |
+| `reachy_script_hook` | empty: beep only | HA action called by the six Reachy scene zones |
 | `main_light_target` | factory: empty; personal: `default_light_target` | entity controlled by the light zones |
-| `main_light_state` | empty: shown as off when a target exists | display state pushed by HA |
+| `main_light_state` | empty: no selected ON/OFF segment | display state pushed by HA |
 | `main_light_value` | empty: `0` | display brightness, `0`–`100` |
 
 The target and its displayed state are deliberately separate. ESPHome can call
@@ -79,7 +79,7 @@ blueprint to keep target, state and value synchronized in the factory profile.
 
 With `zone_script_hook` empty:
 
-- the main button calls `homeassistant.toggle` on `main_light_target`;
+- the ON and OFF zones call `light.turn_on` and `light.turn_off`;
 - 25/50/75/100 percent zones call `light.turn_on` on the same target with
   `brightness_pct`.
 
@@ -98,7 +98,7 @@ data:
   value: script.e1003_zone
 ```
 
-Every touch then calls that action with:
+Every light touch then calls that action with:
 
 | Field | Example |
 |---|---|
@@ -109,6 +109,11 @@ Every touch then calls that action with:
 
 Hook mode replaces direct mode, so one touch cannot produce both actions. Clear
 the hook to return to direct mode.
+
+Reachy uses the separate `reachy_script_hook`. Each of its six existing scene
+tiles beeps and calls that action with `zone` plus one of these `action` values:
+`retail_intro`, `space_intro`, `rescue_intro`, `stop`, `wake`, or `language`.
+The display is not refreshed for a Reachy touch.
 
 ## Recommended Home Assistant setup
 
@@ -130,7 +135,7 @@ request a JSON snapshot instead; PUSH is simpler and should be the default.
 
 | Change | Rebuild? |
 |---|---|
-| controlled light, displayed state/value, banner or hook | no |
+| controlled light, displayed state/value, or hook | no |
 | Wi-Fi credentials on an already provisioned factory device | no, use USB Improv Serial |
 | card/button count, geometry, fonts or artwork | yes |
 | pins, board or display model | yes |

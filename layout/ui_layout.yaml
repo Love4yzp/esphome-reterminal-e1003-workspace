@@ -67,8 +67,8 @@ controls:
 # op:
 #   toggle  call `homeassistant.toggle` on the control's runtime target
 #   call    call an explicit light action on the runtime target
-#   script  call the global runtime script hook with {zone, control}
-# When the global hook is set, it replaces direct mode for every zone.
+#   script  call the dedicated Reachy runtime hook with {zone, action}
+# The general zone hook replaces direct mode for light zones only.
 # -----------------------------------------------------------------------------
 zones:
   - id: light_off

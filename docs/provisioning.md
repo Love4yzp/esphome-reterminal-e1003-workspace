@@ -56,8 +56,9 @@ do not establish acceptance of the final image.
 - Configuration failure: inspect technical details in the App. It preserves
   NVS and does not use keys or local key-recovery records.
 - A recognized touch logs `Touch x=... y=...`; a zone hit also beeps and
-  requests an HA action. It does not prove the light changed. Only the switch
-  and four brightness zones have bindings; other artwork is static.
+  requests an HA action. It does not prove the light or Reachy changed. The two
+  light state zones, four brightness zones, and six Reachy scene zones have
+  bindings; other artwork is static.
 - No touch log: inspect GT911 initialization and wiring. Correct hit boxes
   only with real-panel testing. For an action without a light response,
   check the target entity and HA action permission.

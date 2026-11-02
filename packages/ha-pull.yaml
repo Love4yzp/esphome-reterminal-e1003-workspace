@@ -7,7 +7,7 @@
 #     packages:
 #       ha_pull: !include packages/ha-pull.yaml
 #
-# There are two ways to make the panel show *arbitrary* Home Assistant state
+# There are two ways to keep the light card synchronized with Home Assistant
 # without recompiling the firmware:
 #
 #   PUSH (no extra package)  Home Assistant calls text.set_value on the panel's
@@ -60,9 +60,8 @@ script:
   # Ask Home Assistant, then publish whatever came back into the card override
   # entities. Recognised JSON keys (all optional), consumed in this order:
   #
-  #   {"message": "...", "state": "on", "value": "57"}
+  #   {"state": "on", "value": "57"}
   #
-  #   message -> clock card message
   #   state   -> light card state override
   #   value   -> light card value override (0..100)
   # ---------------------------------------------------------------------------
@@ -83,12 +82,6 @@ script:
 
                 on_success:
                   - lambda: |-
-                      const auto message = response["message"];
-                      if (!message.isNull()) {
-                        const char *value = message.as<const char *>();
-                        if (value != nullptr) id(cfg_message).publish_state(value);
-                      }
-
                       const auto state = response["state"];
                       if (!state.isNull()) {
                         const char *value = state.as<const char *>();

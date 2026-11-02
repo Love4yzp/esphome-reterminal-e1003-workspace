@@ -105,8 +105,8 @@ data:
 |---|:---:|---|
 | 按钮控制哪个实体 | ✅ | `text..._main_light_target` |
 | 卡片显示的状态/数值 | ✅ | `text..._main_light_state` / `_value` |
-| 时钟卡片文案(天气、日程) | ✅ | `text..._clock_message` |
-| 所有按钮的整体逻辑 | ✅ | `zone_script_hook` → HA 脚本 |
+| 灯光按钮的自定义路由 | ✅ | `zone_script_hook` → HA 脚本 |
+| Reachy 场景动作 | ✅ | `reachy_script_hook` → HA 脚本 |
 | 按钮/卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 |
 | 引脚、板型、面板型号、个人默认目标 | ❌ | `packages/defaults.yaml` + `-s key value` |
 

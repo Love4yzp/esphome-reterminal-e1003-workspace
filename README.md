@@ -113,8 +113,8 @@ panel's target/state/value text entities and the light to control.
 |---|---|---|
 | which entity a button controls | ✅ | `text..._main_light_target` |
 | what a card displays | ✅ | `text..._main_light_state` / `_value` |
-| clock/banner text (weather, calendar) | ✅ | `text..._clock_message` |
-| what every button does, in general | ✅ | `zone_script_hook` → an HA script |
+| custom light-button routing | ✅ | `zone_script_hook` → an HA script |
+| Reachy scene actions | ✅ | `reachy_script_hook` → an HA script |
 | number/position of buttons, cards, fonts | ❌ | `layout/ui_layout.yaml` + design PNG |
 | pins, board, panel model, personal default target | ❌ | `packages/defaults.yaml` + `-s key value` |
 

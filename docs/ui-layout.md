@@ -53,7 +53,7 @@ cards:                                   # dynamic regions
     control: main_light
     fields:
       - id: light_value
-        source: light_value              # clock | rtc | sensor | text | light_state | light_value
+        source: light_value              # rtc | sensor | text | light_state | light_value
         clear: { x: 1387, y: 673, w: 100, h: 36 }   # erased to white before redraw
         anchor: { x: 1395, y: 673 }
         align: top_left

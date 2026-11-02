@@ -1,85 +1,134 @@
 # Build and flash
 
-## Toolchain
+## Public first-install image
 
-Everything is driven by [uv](https://docs.astral.sh/uv). ESPHome is pinned in
-`pyproject.toml` and locked in `uv.lock`, so the build is reproducible and no
-global `esphome` install is needed.
+Tagged releases are built from `e1003-factory.yaml`. The factory image contains:
+
+- no station Wi-Fi SSID or password;
+- no pre-shared ESPHome API key;
+- Improv Serial provisioning over USB;
+- a captive-portal fallback hotspot;
+- a 15-minute provisioning window;
+- no persistent ESPHome native OTA service.
+
+Use the browser installer with a USB-C data cable, or flash
+`firmware.factory.bin` at offset 0 with esptool. After flashing, enter Wi-Fi in
+the Improv dialog. If that is unavailable, join the hotspot whose name starts
+with `reterminal-e1003-ha-` using the public password shown on the installer
+page, then open `192.168.4.1`.
+
+Home Assistant provisions a unique API encryption key when the device is added
+for the first time. Import the supplied light-sync blueprint afterward to
+select the user's light and keep the card synchronized.
+
+ESPHome's captive portal automatically includes a web updater. In this profile
+its HTTP listener stops when the provisioning window closes, together with the
+fallback hotspot. The release carries `firmware.ota.bin` for that temporary
+recovery path and for developers, but routine updates should use USB or a
+personal profile with encrypted native OTA.
+
+## Personal development profile
+
+Create `secrets.yaml` from `secrets.example.yaml`:
 
 ```bash
-uv sync                # create/refresh .venv from uv.lock
-uv run esphome version # -> 2026.9.1
+cp secrets.example.yaml secrets.yaml
 ```
 
-> Do not `pip install esphome` into this project. `uv run` syncs the environment
-> from `uv.lock` first and would uninstall anything that is not declared there.
+Set:
 
-Python tooling (`pillow`, `pyyaml`) lives in the `dev` dependency group so the
-generators run through the same environment:
+- `wifi_ssid`
+- `wifi_password`
+- `ap_password`
+- `api_encryption_key`
+
+Then:
+
+```bash
+uv sync
+uv run python scripts/build.py run
+```
+
+`e1003-dashboard.yaml` enables encrypted network OTA and loads
+`packages/ha-direct-state.yaml` for its fixed `default_light_target`.
+
+## Keyless USB reference profile
+
+`e1003-release.yaml` is the reference flow documented in
+[Serial provisioning](provisioning.md). It contains no personal Wi-Fi
+credentials, uses Improv Serial, exposes a plaintext-only ESPHome API, and has
+no OTA service. Build it with:
+
+```bash
+CONFIG=e1003-release.yaml uv run python scripts/build.py compile
+```
+
+## Minimal validation commands
+
+Regenerate and validate the layout:
 
 ```bash
 uv run python tools/layout_to_h.py
+uv run python tools/layout_to_h.py --check
+```
+
+Validate each ESPHome profile without compiling firmware:
+
+```bash
+uv run esphome config e1003-dashboard.yaml
+uv run esphome config e1003-release.yaml
+uv run esphome config e1003-factory.yaml
+```
+
+Full compilation is reserved for release work or changes that affect C++,
+dependencies, board settings or generated firmware:
+
+```bash
+uv run python scripts/build.py compile
+CONFIG=e1003-factory.yaml uv run python scripts/build.py compile
 ```
 
 ## Everyday commands
 
 ```bash
-uv run python scripts/build.py                 # layout check + compile
-uv run python scripts/build.py run             # compile + flash over USB + logs
-uv run python scripts/build.py upload          # compile + OTA upload
-uv run python scripts/build.py logs            # serial/OTA logs
-uv run python scripts/build.py config          # dump the merged configuration
-uv run python scripts/build.py compile -s ha_light_entity light.other   # extra build flags
+uv run python scripts/build.py run       # compile + USB/OTA upload + logs
+uv run python scripts/build.py upload    # personal profile network OTA
+uv run python scripts/build.py logs
+uv run python scripts/build.py config
+
+uv run python scripts/build.py compile \
+  -s default_light_target light.other
 ```
 
-`scripts/build.py` is the one entry point on Linux, Windows and macOS — the same
-file everywhere, with no batch-file variant to drift out of sync. It regenerates
-`layout/generated/` first, so a stale header cannot be compiled by accident, and
-on Windows it scrubs the MSys/Git-Bash environment that breaks the ESP-IDF
-toolchain before esphome starts.
+Set `CONFIG=e1003-factory.yaml` to run the build driver against the factory
+entry point. Raw ESPHome commands also work.
 
-The fonts ship with the repository (`assets/fonts/`, SIL OFL 1.1), so nothing has
-to be installed on the host and every platform renders identical glyph metrics.
-Override with `-s font_regular <path> -s font_bold <path>` if you prefer your own.
+## Release assembly
 
-Raw ESPHome commands work too if you prefer:
+CI supplies only the public fallback-hotspot password:
 
 ```bash
-uv run esphome --device /dev/ttyACM0 run e1003-dashboard.yaml
+cp ci/secrets.placeholder.yaml secrets.yaml
+CONFIG=e1003-factory.yaml uv run python scripts/build.py compile
+uv run python scripts/make_release.py \
+  --config e1003-factory.yaml \
+  --version v0.1.0 \
+  --out dist \
+  --pages-out dist-pages
 ```
 
-## First flash (USB)
-
-These commands build the developer profile. For the maintainer-built,
-credential-free release prototype, see [Serial provisioning](provisioning.md).
-
-```bash
-cp secrets.example.yaml secrets.yaml
-#   wifi_ssid / wifi_password / ap_password
-#   api_encryption_key  ->  python -c "import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())"
-uv run python scripts/build.py run
-```
-
-`secrets.yaml` is git-ignored and never ships. There is no OTA password: OTA
-reuses the API encryption key (`encryption:` with no explicit key in
-`packages/core.yaml`), which is one credential to rotate instead of two and
-saves ~3.5 KB of flash.
-
-## Subsequent updates (OTA)
-
-```bash
-uv run python scripts/build.py upload
-```
+The output contains the factory image, the ESPHome application image, an ESP Web
+Tools manifest, metadata and checksums. The browser installer publishes only
+the factory image.
 
 ## Recovery
 
-If the panel cannot reach Wi-Fi it starts an access point called
-`E1003-Recovery` (password: `ap_password` in `secrets.yaml`, default
-`change_me_ap`). Connect to it and use the captive portal to hand over your
-credentials, or flash over USB.
-
-If an OTA update ever bricks the panel, hold BOOT and re-flash over USB with
-`uv run python scripts/build.py run`.
+- Personal profile: join `E1003-Recovery` and use its captive portal, or flash
+  over USB.
+- Factory profile: USB Improv Serial remains available after provisioning. If
+  the initial unprovisioned window merely timed out, reboot and use Improv or
+  the fallback hotspot.
+- If firmware is unbootable, hold BOOT and flash the factory image over USB.
 
 ## Build artifacts
 
@@ -113,3 +162,9 @@ ESPHome **2026.9.1** is required: this project uses packages, `text`/`event`
 platforms, `homeassistant.action` with `capture_response`, and the
 `substitutions`-aware font schema. Bump it in `pyproject.toml`, run `uv lock`,
 then `uv run esphome compile e1003-dashboard.yaml` and re-check the warnings.
+
+## Toolchain
+
+ESPHome is pinned by `pyproject.toml` and `uv.lock`. Use `uv run`; do not install
+a second global ESPHome version for this repository. Fonts are vendored under
+`assets/fonts/`, so builds do not depend on host fonts.

@@ -8,35 +8,31 @@ A **dashboard terminal**, not a smart-home hub. The firmware knows how to:
 2. paint a handful of dynamic cards on top of it,
 3. turn touches into Home Assistant calls.
 
-It deliberately knows nothing about *which* light, switch or script those calls
-target. That knowledge lives in Home Assistant and can be changed at runtime.
+The public factory image deliberately knows nothing about *which* light those
+calls target. Home Assistant supplies the target and its display state at
+runtime. The personal profile may add one fixed state adapter for convenience.
 
 ```
-                        Home Assistant
-   ┌───────────────────────────┴─────────────────────────────┐
-   │  text.* knobs        event hook        state bindings   │
-   └──────┬──────────────────────┬───────────────────┬───────┘
-          │ Native API (set)     │ script call       │ (fallback)
-          ▼                      ▲                   ▼
-   ┌──────────────────────────────┴──────────────────────────┐
-   │  HA BRIDGE      packages/ha-bridge.yaml                 │
-   │  runtime text entities + compile-time state import      │
+                         Home Assistant
+       target/state/value text       optional script hook
+                 │                           ▲
+                 ▼                           │
+   ┌─────────────────────────────────────────────────────────┐
+   │ INTERACTION  runtime text + GT911 zones + HA actions     │
+   │              packages/interaction.yaml                  │
    ├─────────────────────────────────────────────────────────┤
-   │  UI STATE       packages/ui-state.yaml                  │
-   │  dirty flags + ui_refresh / ui_beep scripts             │
+   │ UI           boot + dirty flags + refresh + rendering   │
+   │              packages/ui.yaml                           │
    ├─────────────────────────────────────────────────────────┤
-   │  RENDER         packages/display.yaml                   │
-   │  IT8951 lambda -- geometry from layout/generated/       │
+   │ HARDWARE     SPI/I2C + buzzer + SHT4x + PCF8563         │
+   │              packages/hardware.yaml                     │
    ├─────────────────────────────────────────────────────────┤
-   │  TOUCH          packages/touch.yaml                     │
-   │  GT911 -> zone table -> zone_dispatch script            │
-   ├─────────────────────────────────────────────────────────┤
-   │  HARDWARE       packages/hardware.yaml                  │
-   │  SPI / I2C / buzzer / SHT4x / PCF8563                   │
-   ├─────────────────────────────────────────────────────────┤
-   │  CORE           packages/core.yaml                      │
-   │  ESP32-S3 / logger / OTA / boot sequence                │
+   │ CORE         identity + ESP32-S3 platform               │
+   │              packages/core.yaml                         │
    └─────────────────────────────────────────────────────────┘
+
+   Entry-point profile owns Wi-Fi, API security and OTA:
+   e1003-dashboard.yaml, e1003-release.yaml, or e1003-factory.yaml
 ```
 
 ## Three sources of truth, no overlap
@@ -44,19 +40,26 @@ target. That knowledge lives in Home Assistant and can be changed at runtime.
 | Concern | Source | Consumed by |
 |---------|--------|-------------|
 | Screen geometry, fonts, touch hit boxes | `layout/ui_layout.yaml` | `tools/layout_to_h.py` → `layout/generated/{ui_layout.h,fonts.yaml,policy.yaml}` |
-| Device identity, wiring, compile-time HA defaults | `e1003-base.yaml` substitutions, overridden by the entry-point profile | every package |
-| Behaviour at runtime (targets, actions, card text) | Home Assistant `text` entities | `packages/ha-bridge.yaml`, `packages/touch.yaml` |
+| Shared identity and wiring | `packages/defaults.yaml` substitutions | every package |
+| Profile network/security/default target | entry-point YAML | ESPHome merge |
+| Runtime target and card text/state | Home Assistant `text` entities | `packages/interaction.yaml`, `packages/ui.yaml` |
 
 If a number appears in two places, one of them is a bug. `tools/layout_to_h.py
 --check` enforces this for the layout file: it verifies that every font, sensor
-and runtime text entity referenced by the layout actually exists under
-`packages/`.
+and runtime text entity referenced by the layout exists under `packages/`.
 
-`e1003-dashboard.yaml` is the developer entry point: it adds local Wi-Fi/API
-credentials and the recovery captive portal. `e1003-release.yaml` is a USB-only
-provisioning prototype: it adds serial Improv, per-device identity, and plaintext-only
-API access without a key. Both include `e1003-base.yaml` so pins, artwork, fonts, and layout are
-shared. See [the provisioning guide](provisioning.md) for current limitations.
+ESPHome does not require rendering and touch hit boxes to be separate. They are
+separate generated data here because a painted rectangle and its usable finger
+target are not always identical. Both still come from one layout file, so there
+is no duplicated coordinate source.
+
+`e1003-dashboard.yaml` is the developer entry point with private Wi-Fi,
+encrypted API and OTA. `e1003-release.yaml` is the keyless USB reference
+profile: it adds serial Improv, per-device identity, and plaintext-only API
+access without OTA. `e1003-factory.yaml` is the public browser-install profile
+with temporary captive-portal provisioning. All three share the same package
+assembly and runtime interaction model. See [the provisioning guide](provisioning.md)
+for the reference profile's current limitations.
 
 ## The dirty-flag contract
 
@@ -78,7 +81,7 @@ three.
 Never call `it8951.update` directly from a data source. If you add a card:
 
 * add its geometry to `layout/ui_layout.yaml`,
-* add a `ui_<card>_dirty` global in `packages/ui-state.yaml`,
+* add a `ui_<card>_dirty` global in `packages/ui.yaml`,
 * draw it in the lambda behind that flag and clear the flag.
 
 ## Coordinate spaces
@@ -117,7 +120,9 @@ assets/original.png ────png_to_h.py─────> assets/dashboard_sta
 
                         src/e1003_render.h                                  (hand-written C++ helpers)
 
-entry-point profile (+ e1003-base.yaml + packages/) ──> esphome compile ──> firmware
+e1003-dashboard.yaml (+ packages/) ─────> personal firmware (network OTA enabled)
+e1003-release.yaml   (+ packages/) ─────> keyless USB reference firmware
+e1003-factory.yaml   (+ packages/) ─────> first-install factory image
 ```
 
 Both generators are idempotent and safe to run on every build; `scripts/build.py`

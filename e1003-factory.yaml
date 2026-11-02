@@ -7,12 +7,7 @@
 # HTTP listener is stopped when the provisioning window closes.
 
 packages:
-  defaults: !include packages/defaults.yaml
-  policy: !include layout/generated/policy.yaml
-  core: !include packages/core.yaml
-  hardware: !include packages/hardware.yaml
-  ui: !include packages/ui.yaml
-  interaction: !include packages/interaction.yaml
+  dashboard: !include e1003-base.yaml
 
 esphome:
   name_add_mac_suffix: true

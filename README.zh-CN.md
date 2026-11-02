@@ -1,6 +1,18 @@
 # reTerminal E1003 墨水屏智能面板 (Home Assistant / ESPHome)
 
-基于 **reTerminal E1003** 电子墨水屏（1872×1404、16 级灰度、IT8951）与 **Seeed XIAO ESP32-S3** 的 ESPHome 固件模板：以整屏设计稿位图作为静态 UI，通过局部刷新更新动态卡片，触摸热区直接与 Home Assistant 交互。
+基于 **reTerminal E1003** 墨水屏(1872×1404、16 级灰度、IT8951)+ **Seeed XIAO
+ESP32-S3** 的 ESPHome 固件模板:设计稿位图作为静态 UI,少量动态卡片单独局部刷新,
+触摸热区调用 Home Assistant。
+
+整个仓库围绕两个原则:
+
+**设计稿是源文件,不是代码。** 屏幕几何、字体、触摸热区统一放在
+[`layout/ui_layout.yaml`](layout/ui_layout.yaml),由 `tools/layout_to_h.py` 编译成
+C++ 头文件。ESPHome 的 packages 里不允许出现任何一个像素数值。
+
+**行为是配置,不是固件。** 按钮控制哪个实体、卡片显示什么内容,
+全部是普通的 Home Assistant `text` 实体。换个灯 = 一次服务调用,**不用重编译、不用
+OTA**。
 
 [English README](README.md)
 
@@ -18,24 +30,33 @@
 ## 目录结构
 
 ```
-e1003-dashboard.yaml            # 开发者入口，使用本地凭据
-e1003-release.yaml              # 无用户凭据的 USB 配网验证版
-e1003-base.yaml                 # 两个入口共享的默认值与组件组合
-layout/                         # 屏幕布局、坐标尺寸、触摸热区与字体定义
-packages/                       # ESPHome 组件包（硬件、显示、触摸、状态与 HA 桥接）
-src/                            # C++ 辅助代码（位图解码等）
-assets/                         # 设计稿 PNG、生成的位图头文件与内置字体
-tools/                          # 布局编译与图片转换工具
-ha/                             # Home Assistant 配置包、转发脚本与自动化示例
-docs/                           # 详细文档
-scripts/                        # 跨平台 build.py 与 shell 兼容包装
+e1003-dashboard.yaml            # 个人配置:私有 Wi-Fi/API/OTA
+e1003-release.yaml              # 无密钥 USB 参考配置
+e1003-factory.yaml              # 公共浏览器安装配置
+e1003-base.yaml                 # 共享 packages 组装
+├── layout/
+│   ├── ui_layout.yaml          # ← 唯一真源:热区、卡片、字体、调色板、刷新策略
+│   └── generated/              # ← 生成物:ui_layout.h / fonts.yaml / policy.yaml
+├── packages/
+│   ├── core.yaml               # 身份与 ESP32 平台
+│   ├── hardware.yaml           # SPI/I2C、蜂鸣器、SHT4x、PCF8563
+│   ├── ui.yaml                 # 启动、脏标记、刷新和渲染
+│   ├── interaction.yaml        # 运行时配置、GT911 和 HA 动作
+│   ├── ha-direct-state.yaml    # 个人配置的可选状态 adapter
+│   └── ha-pull.yaml            # 可选:设备反向拉取 HA 的 JSON
+├── src/e1003_render.h          # C++ 辅助函数(RLE 位图解码)
+├── assets/                     # 设计稿 PNG、生成的位图头文件、内置字体(assets/fonts/)
+├── tools/                      # png_to_h.py、layout_to_h.py
+├── ha/e1003_dashboard.yaml     # Home Assistant 包:转发脚本 + 示例自动化
+├── docs/                       # 架构 / 配置 / 布局 / HA 集成 / 构建
+└── scripts/                    # build.py(Linux / Windows / macOS 同一个入口)
 ```
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
 
 参考设计使用维护者预编译的单一 USB 固件，通过 App 配置 Wi-Fi 和灯光目标，参考固件不使用 API 密钥，也没有加密配置项。使用者不需要编辑 YAML 或编译固件，见[配置流程](docs/provisioning.md)。下方快速开始面向固件开发者。
 
-## 快速开始
+## 开发者快速开始
 
 首先安装工具链依赖并生成配置文件副本：
 
@@ -67,17 +88,27 @@ data:
 
 配置保存后即刻生效，无需重新编译固件。所有运行时可配置项参见 [docs/configuration.md](docs/configuration.md)。
 
+## 现成 factory 固件
+
+不想自己编译?每个 tag 的 Release 都带现成固件,GitHub Pages 上还有一个浏览器刷机页
+——插上 USB-C 就能在网页里直接烧录。见
+[公共首次安装固件](docs/build-and-flash.md#public-first-install-image)。
+
+然后在 Home Assistant 里添加设备,导入
+`ha/blueprints/automation/e1003_light_sync.yaml`,选择面板的 target/state/value
+实体和要控制的灯。全程没有重新编译。其他可运行时修改的内容见
+**[docs/configuration.md](docs/configuration.md)**。
+
 ## 哪些能改、哪些要重编译
 
 | 想改的内容 | 免重编译 | 方式 |
 |---|:---:|---|
 | 按钮控制哪个实体 | ✅ | `text..._main_light_target` |
-| 亮度/百分比按钮调用哪个动作 | ✅ | `text..._main_light_action` |
-| 卡片显示的状态或数值 | ✅ | `text..._main_light_state` / `_value` |
-| 时钟/横幅文案（天气、日历） | ✅ | `text..._clock_message` |
+| 卡片显示的状态/数值 | ✅ | `text..._main_light_state` / `_value` |
+| 时钟卡片文案(天气、日程) | ✅ | `text..._clock_message` |
 | 所有按钮的整体逻辑 | ✅ | `zone_script_hook` → HA 脚本 |
-| 按钮与卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 PNG |
-| 引脚、板型、面板型号、兜底绑定 | ❌ | `e1003-dashboard.yaml` + `-s key value` |
+| 按钮/卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 |
+| 引脚、板型、面板型号、个人默认目标 | ❌ | `packages/defaults.yaml` + `-s key value` |
 
 ## 文档指引
 
@@ -99,4 +130,8 @@ data:
 | 触摸 | GT911 (I²C), LEDC 驱动蜂鸣器反馈 |
 | 传感器 | SHT4x (温湿度), PCF8563 (RTC + 电池备份) |
 
-引脚定义是 `e1003-dashboard.yaml` 中的 substitutions。
+引脚定义在 `packages/defaults.yaml` 的 substitutions 里。
+
+## 许可
+
+MIT,见 [LICENSE](LICENSE)。

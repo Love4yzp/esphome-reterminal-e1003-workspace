@@ -1,59 +1,60 @@
-# Configuration: three tiers, and what can change without reflashing
+# Configuration
 
-This is the document to read before you edit a single YAML file.
+The project has three entry points and four shared firmware modules. Choose the
+entry point based on who will receive the panel; do not copy Wi-Fi or API
+credentials into shared packages.
 
-## The short answer
+## Firmware profiles
 
-**Yes — re-targeting the panel can be done entirely from Home Assistant.** The
-firmware exposes every device-specific decision as a plain HA `text` entity, so
-"make this button control a different light" is a service call, not a rebuild.
+| Profile | Intended use | Wi-Fi and API behavior | OTA |
+|---|---|---|---|
+| `e1003-factory.yaml` | public image / first delivery | no station credentials or API key; Wi-Fi is provisioned through Improv Serial or the captive portal; Home Assistant sets the API key on first connection | no persistent native OTA; captive portal has a temporary web updater while provisioning is open |
+| `e1003-release.yaml` | keyless USB reference flow | no station credentials; Improv Serial; plaintext-only API with MAC-suffixed identity | none |
+| `e1003-dashboard.yaml` | personal development | reads Wi-Fi, fallback AP password and API key from `secrets.yaml` | enabled with API encryption |
 
-What *cannot* be changed at runtime is the **design**: how many cards there are,
-where they sit, and how many buttons the bitmap has. That is geometry baked into
-the e-paper artwork, and it is a deliberate trade — the panel is a design, not a
-widget toolkit.
+The shared modules are:
 
+| Module | Owns |
+|---|---|
+| `packages/core.yaml` | identity and ESP32 platform |
+| `packages/hardware.yaml` | buses, buzzer, sensors and RTC |
+| `packages/ui.yaml` | boot paint, dirty flags, refresh and rendering |
+| `packages/interaction.yaml` | runtime text entities, touch zones and HA calls |
+
+`packages/ha-direct-state.yaml` is an optional adapter loaded only by the
+personal profile. It mirrors the personal profile's fixed default light into
+the same runtime state entities used by the UI.
+
+## Compile-time substitutions
+
+Shared defaults, pins and fonts live in `packages/defaults.yaml`. The personal
+profile overrides only its default target:
+
+```yaml
+substitutions:
+  default_light_target: light.deskside_lamp
 ```
-              runtime (no reflash)                  compile-time (reflash)
-   ┌─────────────────────────────────────┐  ┌────────────────────────────────┐
-   │ which entity a button controls      │  │ number / position of buttons   │
-   │ which action it calls               │  │ card geometry and fonts        │
-   │ what text a card displays           │  │ hardware pins, panel model     │
-   │ whether HA or the panel does logic  │  │ default fallback bindings      │
-   └─────────────────────────────────────┘  └────────────────────────────────┘
-```
 
-## Tier 1 — build flags (no YAML editing, but a recompile)
-
-Every value in the `substitutions:` block of the shared `e1003-base.yaml` can be
-overridden from the command line. Useful for CI, for flashing several panels
-from one checkout, or for changing a pin without touching git:
+Command-line overrides still work:
 
 ```bash
 uv run python scripts/build.py compile \
   -s device_name panel-kitchen \
   -s friendly_name "Kitchen Panel" \
-  -s ha_light_entity light.kitchen_ceiling \
-  -s timezone Europe/Berlin
+  -s default_light_target light.kitchen_ceiling
 ```
 
-Layout-derived values (`canvas_width`, `refresh_*`) are generated into
-`layout/generated/policy.yaml` and cannot be overridden this way — edit
-`layout/ui_layout.yaml` instead, which is the point.
+Geometry and refresh policy come from `layout/ui_layout.yaml`; edit that source
+instead of overriding its generated substitutions.
 
-`e1003-dashboard.yaml` adds developer credentials to those shared defaults.
-The [release prototype](provisioning.md) overrides the device name and uses a
-MAC suffix. Its target starts empty, so buttons do nothing until configured;
-the unused fallback entity is `light.e1003_unconfigured`. Display state/value
-overrides keep the same empty-value fallback behavior. Serial Wi-Fi setup uses plaintext-only API access, with no key.
-Setup does not require a user secrets file. `firmware_version` defaults to `0.2.1`
-in the release profile and is build-time project metadata, not a runtime setting.
+The [keyless reference profile](provisioning.md) overrides the device name,
+adds a MAC suffix, starts with an empty target, and uses plaintext-only API
+access. It requires no user secrets file. Its `firmware_version` is build-time
+project metadata, not a runtime setting.
 
-## Tier 2 — runtime text entities (no recompile, no reboot)
+## Runtime entities
 
-`packages/ha-bridge.yaml` declares these. They are normal Home Assistant
-entities; `restore_value: true` means your settings survive reboots and OTA
-updates.
+`packages/interaction.yaml` exposes these Home Assistant `text` entities:
 
 Text settings are normally flushed to flash every 60 seconds. Allow at least
 65 seconds after a change before removing power or performing a hard reset.
@@ -61,176 +62,76 @@ A live API readback confirms the current value, not completion of that flash
 write. The App waits before restarting and verifying the saved target; see
 [reference setup](provisioning.md).
 
-| Entity (suffix) | Default | Purpose |
-|-----------------|---------|---------|
-| `zone_script_hook` | *(empty)* | HA action called on **every** tap. Empty = built-in direct mode. |
-| `clock_message` | *(empty)* | Overrides the clock card message. Empty = local greeting. |
-| `main_light_target` | `light.deskside_lamp` | entity_id the light card controls. |
-| `main_light_action` | `light.turn_on` | Action used by the 25/50/75/100% buttons. |
-| `main_light_state` | *(empty)* | Card state override (`on`/`off`). Empty = compile-time binding. |
-| `main_light_value` | *(empty)* | Card value override (`0`..`100`). Empty = compile-time binding. |
+| Entity suffix | Empty/default behavior | Purpose |
+|---|---|---|
+| `zone_script_hook` | empty: use direct mode | optional HA action called for every zone |
+| `clock_message` | empty: local time-of-day greeting | clock card banner |
+| `main_light_target` | factory: empty; personal: `default_light_target` | entity controlled by the light zones |
+| `main_light_state` | empty: shown as off when a target exists | display state pushed by HA |
+| `main_light_value` | empty: `0` | display brightness, `0`–`100` |
 
-Find the real entity ids in **Developer Tools → States**, searching for the
-device name; Home Assistant composes them from the ESPHome device name, so they
-look like `text.e1003_smart_workspace_main_light_target`.
+The target and its displayed state are deliberately separate. ESPHome can call
+an entity id stored in text at runtime, but a `platform: homeassistant` state
+subscription requires a compile-time literal entity id. Use the supplied
+blueprint to keep target, state and value synchronized in the factory profile.
 
-### Recipe: point a button at a different light
+## Direct mode
+
+With `zone_script_hook` empty:
+
+- the main button calls `homeassistant.toggle` on `main_light_target`;
+- 25/50/75/100 percent zones call `light.turn_on` on the same target with
+  `brightness_pct`.
+
+Direct mode is intentionally light-specific. For a switch, fan, scene,
+conditions or per-zone custom logic, use hook mode.
+
+## Hook mode
+
+Set the hook entity to an HA script:
 
 ```yaml
 action: text.set_value
 target:
-  entity_id: text.e1003_smart_workspace_main_light_target
+  entity_id: text.<panel>_zone_script_hook
 data:
-  value: light.office_strip
+  value: script.e1003_zone
 ```
 
-That is it. The next tap calls `homeassistant.toggle` on `light.office_strip`,
-and the 25/50/75/100% buttons call `light.turn_on` with `brightness_pct` on the
-same entity. No reflash, no reboot.
+Every touch then calls that action with:
 
-### Recipe: drive a switch, fan or input_boolean instead of a light
+| Field | Example |
+|---|---|
+| `zone` | `light_50` |
+| `control` | `main_light` |
+| `data_name` | `brightness_pct` |
+| `data_value` | `50` |
 
-```yaml
-# two service calls, once
-action: text.set_value
-target: { entity_id: text.e1003_smart_workspace_main_light_target }
-data: { value: switch.desk_fan }
+Hook mode replaces direct mode, so one touch cannot produce both actions. Clear
+the hook to return to direct mode.
 
-action: text.set_value
-target: { entity_id: text.e1003_smart_workspace_main_light_action }
-data: { value: fan.turn_on }      # used by the % buttons
-```
+## Recommended Home Assistant setup
 
-The toggle button works with any domain because it calls domain-agnostic
-`homeassistant.toggle`. The percentage buttons pass `brightness_pct`, which is
-the right key for `light.turn_on`; for a fan you would switch those zones to the
-hook (below) or adapt the `call` branch in `packages/touch.yaml`. That one
-branch is the only light-specific line left in the firmware, and it is marked.
+Import `ha/blueprints/automation/e1003_light_sync.yaml`, then select:
 
-### Recipe: show something else in the clock card
+1. the light to control;
+2. the panel's target text entity;
+3. the panel's state text entity;
+4. the panel's value text entity.
 
-```yaml
-action: text.set_value
-target: { entity_id: text.e1003_smart_workspace_clock_message }
-data: { value: "晴 24°C · 无风" }
-```
+The automation writes the target and mirrors every light state/brightness
+change to the e-paper card. Re-targeting therefore needs no firmware rebuild.
 
-Anything HA can template can go here, including a weather summary that is itself
-driven by an automation:
+For arbitrary content, Home Assistant can push values with `text.set_value`.
+The optional `packages/ha-pull.yaml` adapter is available when the panel must
+request a JSON snapshot instead; PUSH is simpler and should be the default.
 
-```yaml
-automation:
-  - alias: "E1003 weather summary"
-    triggers:
-      - trigger: time_pattern
-        minutes: "/10"
-    actions:
-      - action: text.set_value
-        target: { entity_id: text.e1003_smart_workspace_clock_message }
-        data:
-          value: >-
-            {{ state_attr('weather.home','temperature') }}°C ·
-            {{ states('weather.home') }}
-```
+## What requires rebuilding
 
-## Tier 3 — let Home Assistant own the buttons
-
-Set `zone_script_hook` to an HA script and the firmware stops making decisions
-entirely: it calls that script with the zone metadata and does nothing else.
-
-```
-zone_script_hook = script.e1003_zone
-```
-
-Every tap then calls `script.e1003_zone` with:
-
-| field | example | meaning |
-|-------|---------|---------|
-| `zone` | `light_50` | the zone id from `layout/ui_layout.yaml` |
-| `control` | `main_light` | which control the zone belongs to |
-| `data_name` | `brightness_pct` | semantic payload name |
-| `data_value` | `50` | payload value |
-
-`ha/e1003_dashboard.yaml` contains a ready-to-paste script with a `choose:` block
-you edit. This is the escape hatch for everything the direct mode cannot express:
-scenes, conditions, notify calls, different behaviour per time of day.
-
-**Direct mode vs hook mode is exclusive.** With a hook configured, the built-in
-`homeassistant.toggle` path is skipped, so you never get double actions. Clear
-the hook to go back to direct mode.
-
-## Capability matrix
-
-| I want to change... | Without reflashing? | How |
-|---|---|---|
-| Which light/switch a button controls | ✅ | `text..._main_light_target` |
-| Which action the % buttons call | ✅ | `text..._main_light_action` |
-| What the card says (`On`/`Off`, `57%`) | ✅ | `..._state` / `..._value` overrides, or the PULL package |
-| Clock/banner text (weather, calendar, anything) | ✅ | `text..._clock_message` |
-| What every button does, in general | ✅ | `zone_script_hook` → HA script |
-| Show state of an entity the firmware never heard of | ✅ | PUSH (`text.set_value`) or PULL (`packages/ha-pull.yaml`) |
-| Room name, greeting wording | ✅ | same text entities |
-| Target entity used as the *fallback* | ⚠️ recompile | `-s ha_light_entity=...` |
-| Number of buttons / cards | ❌ | design bitmap + `layout/ui_layout.yaml` |
-| Button positions, card geometry, fonts | ❌ | `layout/ui_layout.yaml` + `png_to_h.py` |
-| Hardware pins, panel model, board | ❌ | shared `e1003-base.yaml` substitutions |
-
-The dividing line is honest: **behaviour is runtime, design is compile-time.**
-Adding a sixth button means the artwork has to change anyway, and on e-paper the
-artwork *is* the firmware.
-
-## Reading state without recompiling: PUSH vs PULL
-
-`platform: homeassistant` sensors (the compile-time fallback bindings) require a
-literal `entity_id` at build time. Two ways around it:
-
-**PUSH — Home Assistant tells the panel.** Recommended. An automation templates
-the value and calls `text.set_value` on one of the panel's text entities. Event
-driven, no polling, no extra firmware package. Recipe in
-`docs/ha-integration.md`.
-
-**PULL — the panel asks Home Assistant.** Enable `packages/ha-pull.yaml`, set the
-`Pull action` entity to an HA script and the `Pull template` entity to a Jinja
-template. The firmware calls that action with `capture_response`, HA renders the
-template and returns JSON like `{"message": "...", "state": "on", "value": "57"}`,
-and the panel publishes each key into the matching card override. Both the
-action *and* the query are runtime text entities, so even the query is
-reconfigurable without a reflash.
-
-PULL needs a Home Assistant that supports ESPHome action responses and costs one
-API round trip every few minutes; use PUSH unless the panel genuinely has to
-poll.
-
-## Discovering the entity ids
-
-```bash
-uv run python scripts/build.py logs          # see the panel boot, confirm it connected
-```
-Then in Home Assistant: **Settings → Devices & Services → ESPHome → your
-panel**. The text entities are listed under the device. Renaming the device in
-Home Assistant does not affect the firmware — it only changes the entity ids, so
-do that before writing automations.
-
-## One firmware, many personas
-
-Because all behaviour is HA-side, a single firmware can present completely
-different personalities depending on Home Assistant state:
-
-```yaml
-automation:
-  - alias: "E1003: office mode"
-    triggers: [{ trigger: state, entity_id: input_select.room_mode }]
-    actions:
-      - action: text.set_value
-        target: { entity_id: text.e1003_smart_workspace_main_light_target }
-        data:
-          value: >-
-            {{ 'light.desk_lamp' if is_state('input_select.room_mode','work')
-               else 'light.ambient' }}
-      - action: text.set_value
-        target: { entity_id: text.e1003_smart_workspace_clock_message }
-        data:
-          value: "{{ states('input_select.room_mode') }} mode"
-```
-
-Same binary, different behaviour, no OTA in the loop.
+| Change | Rebuild? |
+|---|---|
+| controlled light, displayed state/value, banner or hook | no |
+| Wi-Fi credentials on an already provisioned factory device | no, use USB Improv Serial |
+| card/button count, geometry, fonts or artwork | yes |
+| pins, board or display model | yes |
+| adding/removing an ESPHome module | yes |

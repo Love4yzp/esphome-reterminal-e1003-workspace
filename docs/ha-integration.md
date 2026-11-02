@@ -1,109 +1,68 @@
 # Home Assistant integration
 
-## 1. Add the device
+## First connection
 
-Flash the panel (see `docs/build-and-flash.md`), let it join your Wi-Fi, then
-**Settings → Devices & Services → Add Integration → ESPHome** and enter the
-device name (`reterminal-e1003-ha` for the developer profile, or its IP).
-The reference release uses a MAC-suffixed name and plaintext-only API access
-without a key. In the ESPHome
-integration options, enable **Allow the device to perform Home Assistant actions**
-so touches can control the configured target.
+For a factory image:
 
-The device appears with these entities:
+1. Flash `firmware.factory.bin` through the browser installer or USB.
+2. Keep USB connected and use the Improv Serial Wi-Fi dialog.
+3. If Improv is unavailable, join the fallback hotspot whose name starts with
+   `reterminal-e1003-ha-`, then open `192.168.4.1`.
+4. Add the discovered ESPHome device in Home Assistant. The first connection
+   provisions a unique API encryption key.
 
-| Entity | Direction | Notes |
-|--------|-----------|-------|
-| `sensor.<...>_temperature` / `_humidity` | panel → HA | onboard SHT4x |
-| `text.<...>_zone_script_hook` | HA → panel | routing mode switch (below) |
-| `text.<...>_clock_message` | HA → panel | clock card banner |
-| `text.<...>_main_light_target` | HA → panel | entity_id the buttons control |
-| `text.<...>_main_light_action` | HA → panel | action used by the % buttons |
-| `text.<...>_main_light_state` | HA → panel | optional card state override |
-| `text.<...>_main_light_value` | HA → panel | optional card value override |
-| `button.<...>_repaint` … | HA → panel | `esphome.<device>_repaint`, `_beep` actions |
+The personal profile already contains the owner's Wi-Fi and API key from
+`secrets.yaml`, so it can be added by hostname or IP after boot.
 
-The buzzer is `internal: true` on purpose — an on-board beeper is not an HA
-feature and only adds clutter.
+The keyless reference profile uses a MAC-suffixed device name and
+plaintext-only API access. Follow [the reference provisioning flow](provisioning.md),
+then add the discovered device without an encryption key.
 
-## 2. Pick a routing mode
+For every profile, enable **Allow the device to perform Home Assistant actions**
+in the ESPHome integration options so touches can control the configured target.
 
-### Direct mode (default, zero HA setup)
+## Panel entities
 
-`zone_script_hook` is empty. Taps call `homeassistant.toggle` on
-`main_light_target`, and the percentage buttons call `main_light_action` with
-`brightness_pct`. Nothing to configure; use it as the baseline.
+Home Assistant creates names based on the device name. Look them up in
+**Developer Tools → States** rather than copying the examples literally.
 
-### Hook mode (HA owns the routing)
+| Entity suffix | Direction | Purpose |
+|---|---|---|
+| `temperature`, `humidity` | panel → HA | onboard SHT4x |
+| `zone_script_hook` | HA → panel | empty for direct mode; script/action for hook mode |
+| `clock_message` | HA → panel | optional banner |
+| `main_light_target` | HA → panel | runtime target entity id |
+| `main_light_state` | HA → panel | card state |
+| `main_light_value` | HA → panel | card brightness, `0`–`100` |
+| `repaint`, `beep` actions | HA → panel | diagnostic actions |
 
-```yaml
-action: text.set_value
-target: { entity_id: text.<...>_zone_script_hook }
-data: { value: script.e1003_zone }
-```
+## Recommended: import the light-sync blueprint
 
-Now every tap calls `script.e1003_zone` with `{zone, control, data_name,
-data_value}` and the firmware does nothing else. See
-`docs/configuration.md` for the full list of things this unlocks.
+Import `ha/blueprints/automation/e1003_light_sync.yaml` and create an
+automation. Select one HA light and the panel's target/state/value text
+entities. The blueprint:
 
-## 3. Copy the package
+- writes the selected light's entity id into the runtime target;
+- mirrors its state;
+- converts HA brightness `0`–`255` to panel brightness `0`–`100`;
+- refreshes the values when Home Assistant starts.
 
-`ha/e1003_dashboard.yaml` is a drop-in Home Assistant package:
+This is the normal factory-profile setup. The firmware remains generic and no
+user Wi-Fi, API key or entity id is published in the release image.
 
-```
-config/
-├── configuration.yaml        # homeassistant: packages: !include_dir_named packages
-└── packages/
-    └── e1003_dashboard.yaml
-```
+## Direct and hook routing
 
-It contains:
+Direct mode is active when `zone_script_hook` is empty. The toggle zone uses
+`homeassistant.toggle`; percentage zones use `light.turn_on`.
 
-* `input_text.e1003_main_light` — the single place where you name the target,
-* `script.e1003_zone` — the routing `choose:` block you edit,
-* `script.e1003_snapshot` — the response script used by the PULL package,
-* two example automations that mirror state into the panel's card overrides.
+For custom behavior, set the hook to an HA action such as
+`script.e1003_zone`. The panel passes `{zone, control, data_name, data_value}`
+and skips all built-in routing. `ha/e1003_dashboard.yaml` contains an editable
+example package.
 
-## 4. Keep the card in sync when you re-target
+## Push arbitrary display content
 
-The card's *display* falls back to the compile-time binding (`ha_light_entity` in
-`e1003-dashboard.yaml`) unless something overrides it. To make the card follow
-whatever you point the buttons at — including a target chosen at runtime — push
-two strings into the panel:
-
-```yaml
-automation:
-  - alias: "E1003 light card follows the configured target"
-    mode: queued
-    triggers:
-      - trigger: state
-        entity_id: input_text.e1003_main_light
-      - trigger: state
-        entity_id: light.deskside_lamp
-    actions:
-      - variables:
-          target: "{{ states('input_text.e1003_main_light') }}"
-      - action: text.set_value
-        target: { entity_id: text.<...>_main_light_state }
-        data: { value: "{{ states(target) }}" }
-      - action: text.set_value
-        target: { entity_id: text.<...>_main_light_value }
-        data:
-          value: >-
-            {{ (state_attr(target, 'brightness') or 0) / 2.55 | round(0) | int }}
-```
-
-Notes:
-
-* `brightness` is 0–255 in HA, the card wants 0–100.
-* `state_value` accepts anything; the card prints `On` for `on` and `Off`
-  otherwise.
-* An empty overrides entity means "use the firmware's own binding", so clearing
-  these never breaks the display.
-
-## 5. Push anything else onto the screen
-
-The clock card banner is a free text field — weather, calendar, bin day:
+The banner and light display values are normal `text` entities:
 
 ```yaml
 automation:
@@ -113,45 +72,24 @@ automation:
         minutes: "/10"
     actions:
       - action: text.set_value
-        target: { entity_id: text.<...>_clock_message }
+        target:
+          entity_id: text.<panel>_clock_message
         data:
           value: >-
-            {{ state_attr('weather.home','temperature') }}°C ·
+            {{ state_attr('weather.home', 'temperature') }}°C ·
             {{ states('weather.home') }}
 ```
 
-There is no compile-time coupling here: the firmware just draws the string.
+Use PUSH unless polling is required. To enable the optional PULL channel, add
+`ha_pull: !include packages/ha-pull.yaml` to the personal profile, rebuild, and
+configure its action/template text entities.
 
-## 6. Optional: the PULL channel
-
-If you would rather the panel poll than have HA push, add
-
-```yaml
-# e1003-dashboard.yaml
-packages:
-  ha_pull: !include packages/ha-pull.yaml
-```
-
-rebuild once, then set:
-
-* `text.<...>_pull_action` = `script.e1003_snapshot`
-* `text.<...>_pull_template` = a Jinja template producing JSON, e.g.
-  ```jinja
-  {"message": "{{ states('sensor.outdoor_temperature') }}°C",
-   "state": "{{ states('light.deskside_lamp') }}",
-   "value": "{{ (state_attr('light.deskside_lamp','brightness') or 0) / 2.55 | round(0) }}"}
-  ```
-
-The firmware sends that template with `capture_response`, HA renders it and
-returns the JSON, and each key lands in the matching card override. Requires a
-recent Home Assistant (action responses over the ESPHome API).
-
-## 7. Troubleshooting
+## Troubleshooting
 
 | Symptom | Check |
-|---------|-------|
-| Taps do nothing | `uv run python scripts/build.py logs` — zone hits are logged as `zone 'light_50' op=1 target='...'`. An empty target means the runtime text entity is empty. |
-| Card shows `Off 0%` while HA says otherwise | the state/value overrides are empty or stale; push them, or clear them to fall back |
-| Hook set but nothing happens | the hook must be a callable action string (`script.xxx`), and the script must not error — check HA's logbook for `script.e1003_zone` |
-| Ghosting after many partial refreshes | expected: the panel does a full GC16 refresh every `full_update_every` paints. Call `esphome.<device>_repaint` to force one |
-| Entity ids in this doc do not match | Home Assistant composes them from the device name; look them up in Developer Tools → States |
+|---|---|
+| card says `Setup` | `main_light_target` is empty; create the blueprint automation or set it manually |
+| touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
+| action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
+| fallback hotspot is unavailable | the 15-minute provisioning window may have closed; reboot the panel |
+| touch area is offset | verify the zone on hardware; do not remove the documented mirror conversion |

@@ -14,10 +14,14 @@ Keep control targets, actions, and card text configurable at runtime. The Home A
 |---|---|
 | Shared identity, pins, fonts, and defaults | `packages/defaults.yaml` |
 | Profile-specific network, API, OTA, and target defaults | `e1003-dashboard.yaml`, `e1003-release.yaml`, `e1003-factory.yaml` |
+| Shared package assembly | `e1003-base.yaml` |
 | Screen geometry, font sizes, touch zones, cards, refresh policy | `layout/ui_layout.yaml` |
 | Runtime text settings and touch dispatch | `packages/interaction.yaml` |
 | Optional fixed Home Assistant state import | `packages/ha-direct-state.yaml` |
+| Optional Home Assistant JSON pull channel | `packages/ha-pull.yaml` |
 | Dirty flags, refresh scripts, and panel rendering | `packages/ui.yaml`, `src/e1003_render.h` |
+| Build and release assembly | `scripts/build.py`, `scripts/make_release.py` |
+| Browser installer and release CI | `web/install.html`, `.github/workflows/ci.yml` |
 
 Read the relevant guide when changing these areas:
 
@@ -75,6 +79,9 @@ by `packages/interaction.yaml`.
 
 For a new runtime setting, use a `cfg_<thing>` ID, `optimistic: true`, `restore_value: true`, and an appropriate `initial_value`. Reference it from the layout's `runtime:` section where applicable so `layout_to_h.py` can validate its ID. Empty overrides must preserve the existing fallback behavior. Document the setting, its default, and its fallback in `docs/configuration.md`.
 
+Public release builds may use only values from `ci/secrets.placeholder.yaml`;
+every value there is public and may be embedded in firmware or the installer.
+
 Keep `packages/*.yaml` declarative; move substantial reusable logic into `src/*.h` or scripts. Use short comments to explain reasons and keep architecture explanations in `docs/architecture.md`. Write code and documentation in English; `README.zh-CN.md` is the Chinese entry point.
 
 ## Verification
@@ -94,8 +101,10 @@ Linux, Windows, and macOS.
 
 Pass criteria:
 
+- `uv run python tools/layout_to_h.py --check` must pass.
 - `uv run python scripts/build.py config` must succeed and report `Configuration is valid!`.
 - `uv run python scripts/build.py compile` must succeed and report `Successfully compiled program.`.
+- Factory changes must also validate or compile with `CONFIG=e1003-factory.yaml`.
 - No new compiler warnings.
 - No unexplained growth in RAM or flash usage compared with the prior build.
 

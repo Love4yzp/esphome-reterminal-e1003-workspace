@@ -15,7 +15,7 @@ plain `esphome compile` works without Python):
 | File | Contents | Consumed by |
 |------|----------|-------------|
 | `ui_layout.h` | `Rect`/`Point` constants, palette, zone table | the display lambda, the touch lambda |
-| `fonts.yaml` | the ESPHome `font:` block | `packages/display.yaml` |
+| `fonts.yaml` | the ESPHome `font:` block | `packages/ui.yaml` |
 | `policy.yaml` | canvas size and refresh policy as substitutions | `e1003-dashboard.yaml` |
 
 ## Validation
@@ -28,13 +28,14 @@ The generator fails the build on the mistakes that actually happen:
 * a font whose `file:` does not exist once `${font_regular}` / `${font_bold}` are
   resolved against the entry-point YAML's `substitutions:`,
 * a field missing a font, alignment or anchor (gauges excepted),
-* a `sensor:`, `text:` or `control:` id that does not exist under `packages/`,
+* a `sensor:` or `text:` id that does not exist under `packages/`, or an unknown
+  semantic `control:`,
 * duplicate zone or field ids,
 * an unknown `op`, `align` or `source`.
 
-The last two checks are what stop the layout and the firmware from drifting
-apart: rename a text entity in `packages/ha-bridge.yaml` and the generator tells
-you immediately instead of the compiler failing 40 seconds later.
+These checks stop the layout and firmware from drifting apart: rename a text
+entity in `packages/interaction.yaml` and the generator reports it before the
+firmware build.
 
 ## Anatomy
 
@@ -42,10 +43,10 @@ you immediately instead of the compiler failing 40 seconds later.
 zones:                                   # touch hit boxes
   - id: light_50
     label: "Main light 50%"              # documentation only
-    control: main_light                  # must exist in runtime.controls
+    control: main_light                  # must exist in top-level controls
     area: { x1: 1359, y1: 711, x2: 1478, y2: 784 }
     op: call                             # toggle | call | script
-    data: { brightness_pct: "50" }       # passed to the HA hook, and to `call`
+    data: { brightness_pct: "50" }       # passed to the hook or direct action
 
 cards:                                   # dynamic regions
   light:
@@ -73,11 +74,10 @@ value's pixels around the new glyphs.
 4. `uv run python tools/layout_to_h.py`
 5. Rebuild and flash. The touch code needs no change — the zone table is data.
 
-If the new button belongs to a **new** control, add that control to
-`runtime.controls` first (with its four text entity ids), declare those entities
-in `packages/ha-bridge.yaml`, and add one row to the `BINDINGS` table in
-`packages/touch.yaml`. That row is the only code change, and it exists because
-`id()` in ESPHome is resolved at compile time.
+If the new button belongs to a **new** control, add its semantic id to
+top-level `controls:`, declare the needed runtime text entities in
+`packages/interaction.yaml`, and add its direct-mode behavior there. Keep the
+layout free of ESPHome entity ids.
 
 ## Adding a dynamic card
 
@@ -101,5 +101,5 @@ that shows a cursor position. Remember the two coordinate spaces:
 `png_to_h.py` scales whatever you give it to 1872x1404 and quantizes to 16 gray
 levels (`WHITE_CLIP = 220` forces near-white pixels to pure white, which keeps
 the RLE small). If you change the canvas size, update `meta.canvas` in the layout
-file and the `display:` model/spi setup in `packages/display.yaml`, then re-check
+file and the `display:` model/spi setup in `packages/ui.yaml`, then re-check
 every zone area on the real panel.

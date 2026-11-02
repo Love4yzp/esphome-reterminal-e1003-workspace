@@ -5,6 +5,10 @@ font:
     id: font_tiny
     size: 20
 
+  - file: ${font_regular}
+    id: font_small
+    size: 24
+
   - file: ${font_bold}
     id: font_medium
     size: 36
@@ -12,7 +16,3 @@ font:
   - file: ${font_bold}
     id: font_large
     size: 48
-
-  - file: ${font_bold}
-    id: font_number
-    size: 110

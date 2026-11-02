@@ -13,20 +13,6 @@ text:
     initial_value: ""
 
   - platform: template
-    id: cfg_message
-    name: "${friendly_name} Clock message"
-    mode: text
-    optimistic: true
-    restore_value: true
-    max_length: 63
-    initial_value: ""
-    on_value:
-      then:
-        - lambda: |-
-            id(ui_time_dirty) = true;
-        - script.execute: ui_refresh
-
-  - platform: template
     id: cfg_target_main_light
     name: "${friendly_name} Main light target"
     mode: text
@@ -153,7 +139,32 @@ script:
             - if:
                 condition:
                   lambda: |-
-                    return op == 1 && !target.empty();
+                    return op == 1 && data_name == "state"
+                        && data_value == "off" && !target.empty();
+                then:
+                  - homeassistant.action:
+                      action: light.turn_off
+                      data_template:
+                        entity_id: !lambda |-
+                          return target;
+
+            - if:
+                condition:
+                  lambda: |-
+                    return op == 1 && data_name == "state"
+                        && data_value == "on" && !target.empty();
+                then:
+                  - homeassistant.action:
+                      action: light.turn_on
+                      data_template:
+                        entity_id: !lambda |-
+                          return target;
+
+            - if:
+                condition:
+                  lambda: |-
+                    return op == 1 && data_name == "brightness_pct"
+                        && !target.empty();
                 then:
                   - homeassistant.action:
                       action: light.turn_on

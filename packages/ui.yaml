@@ -35,10 +35,15 @@ globals:
     restore_value: no
     initial_value: 'true'
 
-  - id: ui_time_dirty
+  - id: ui_network_dirty
     type: bool
     restore_value: no
     initial_value: 'false'
+
+  - id: ui_network_signature
+    type: std::string
+    restore_value: no
+    initial_value: '""'
 
   - id: ui_env_dirty
     type: bool
@@ -49,6 +54,42 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+
+text_sensor:
+  - platform: wifi_info
+    ssid:
+      id: connected_wifi_ssid
+      internal: true
+
+interval:
+  # Poll connectivity without refreshing the panel unless the visible state
+  # actually changes. This also catches fallback AP activation after timeout.
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              if (!id(ui_ready)) return false;
+
+              const bool ap_active = wifi::global_wifi_component != nullptr
+                  && wifi::global_wifi_component->is_ap_active();
+              const bool wifi_connected = wifi::global_wifi_component != nullptr
+                  && wifi::global_wifi_component->is_connected();
+              const bool api_connected = api::global_api_server != nullptr
+                  && api::global_api_server->is_connected();
+
+              const std::string signature =
+                  std::string(ap_active ? "ap|" : "sta|")
+                  + (wifi_connected ? "1|" : "0|")
+                  + (api_connected ? "1|" : "0|")
+                  + id(connected_wifi_ssid).state;
+
+              if (signature == id(ui_network_signature)) return false;
+              id(ui_network_signature) = signature;
+              id(ui_network_dirty) = true;
+              return true;
+          then:
+            - script.execute: ui_refresh
 
 script:
   # Sources mark a card dirty and call this script. Restart mode merges bursts
@@ -108,7 +149,7 @@ display:
     lambda: |-
       static const Color BLACK = Color::BLACK;
       static const Color WHITE = Color::WHITE;
-      const Color G3 = Color(e1003::G3, e1003::G3, e1003::G3);
+      const Color G2 = Color(e1003::G2, e1003::G2, e1003::G2);
 
       auto clear = [&](const e1003::Rect &r) {
         it.filled_rectangle(r.x, r.y, r.w, r.h, WHITE);
@@ -139,38 +180,77 @@ display:
         return value > 100 ? 100 : value;
       };
 
-      auto clock_message = [&]() -> std::string {
-        const std::string override_message = id(cfg_message).state;
-        if (!override_message.empty()) {
-          return override_message;
-        }
-        auto now = id(rtc_time).now();
-        if (!now.is_valid()) return "";
-        return now.hour < 12 ? "Good Morning"
-             : now.hour < 18 ? "Good Afternoon"
-                             : "Good Evening";
+      auto compact_network_name = [](const std::string &value) -> std::string {
+        if (value.size() <= 20) return value;
+        return value.substr(0, 10) + "..." + value.substr(value.size() - 6);
       };
 
-      auto draw_clock = [&]() {
-        clear(e1003::CLOCK_CLEAR);
+      auto draw_network = [&]() {
+        const bool ap_active = wifi::global_wifi_component != nullptr
+            && wifi::global_wifi_component->is_ap_active();
+        const bool wifi_connected = wifi::global_wifi_component != nullptr
+            && wifi::global_wifi_component->is_connected();
+        const bool api_connected = api::global_api_server != nullptr
+            && api::global_api_server->is_connected();
 
-        auto now = id(rtc_time).now();
-        if (now.is_valid()) {
-          it.strftime(e1003::CLOCK_DATE_ANCHOR.x, e1003::CLOCK_DATE_ANCHOR.y,
-                      id(font_medium), BLACK,
-                      e1003::CLOCK_DATE_ALIGN, e1003::CLOCK_DATE_FORMAT, now);
+        std::string status;
+        std::string role;
+        std::string name;
+        std::string detail;
 
-          it.strftime(e1003::CLOCK_TIME_ANCHOR.x, e1003::CLOCK_TIME_ANCHOR.y,
-                      id(font_number), BLACK,
-                      e1003::CLOCK_TIME_ALIGN, e1003::CLOCK_TIME_FORMAT, now);
+        if (ap_active) {
+          status = "SETUP WI-FI";
+          role = "SETUP AP";
+          name = "${status_ap_ssid}";
+          if (name.empty()) name = App.get_name().c_str();
+          detail = "Open 192.168.4.1";
+        } else if (wifi_connected) {
+          status = "READY";
+          role = "HOME WI-FI";
+          name = id(connected_wifi_ssid).state;
+          if (name.empty()) name = "Connected network";
+          detail = api_connected
+              ? "Home Assistant connected"
+              : "Home Assistant waiting";
+        } else if (std::string("${setup_transport}") == "usb") {
+          status = "SETUP WI-FI";
+          role = "USB SETUP";
+          name = "Connect USB cable";
+          detail = "Use Improv over USB";
+        } else {
+          status = "CONNECTING";
+          role = "HOME WI-FI";
+          name = "Searching for network";
+          detail = "Setup AP will start";
         }
 
-        const std::string message = clock_message();
-        if (!message.empty()) {
-          it.printf(e1003::CLOCK_MESSAGE_ANCHOR.x, e1003::CLOCK_MESSAGE_ANCHOR.y,
-                    id(font_medium), BLACK,
-                    e1003::CLOCK_MESSAGE_ALIGN, "%s", message.c_str());
-        }
+        name = compact_network_name(name);
+
+        clear(e1003::NETWORK_STATUS_CLEAR);
+        it.printf(e1003::NETWORK_STATUS_ANCHOR.x, e1003::NETWORK_STATUS_ANCHOR.y,
+                  id(font_large), BLACK,
+                  e1003::NETWORK_STATUS_ALIGN, "%s", status.c_str());
+
+        clear(e1003::NETWORK_ROLE_CLEAR);
+        it.printf(e1003::NETWORK_ROLE_ANCHOR.x, e1003::NETWORK_ROLE_ANCHOR.y,
+                  id(font_tiny), BLACK,
+                  e1003::NETWORK_ROLE_ALIGN, "%s", role.c_str());
+
+        clear(e1003::NETWORK_NAME_CLEAR);
+        it.printf(e1003::NETWORK_NAME_ANCHOR.x, e1003::NETWORK_NAME_ANCHOR.y,
+                  id(font_small), BLACK,
+                  e1003::NETWORK_NAME_ALIGN, "%s", name.c_str());
+
+        clear(e1003::NETWORK_DETAIL_CLEAR);
+        it.printf(e1003::NETWORK_DETAIL_ANCHOR.x, e1003::NETWORK_DETAIL_ANCHOR.y,
+                  id(font_tiny), BLACK,
+                  e1003::NETWORK_DETAIL_ALIGN, "%s", detail.c_str());
+
+        id(ui_network_signature) =
+            std::string(ap_active ? "ap|" : "sta|")
+            + (wifi_connected ? "1|" : "0|")
+            + (api_connected ? "1|" : "0|")
+            + id(connected_wifi_ssid).state;
       };
 
       auto draw_environment = [&]() {
@@ -204,39 +284,72 @@ display:
         const bool on = light_on();
         const int pct = light_pct();
 
-        clear(e1003::LIGHT_STATE_TEXT_CLEAR);
-        it.printf(e1003::LIGHT_STATE_TEXT_ANCHOR.x, e1003::LIGHT_STATE_TEXT_ANCHOR.y,
-                  id(font_medium), BLACK,
-                  e1003::LIGHT_STATE_TEXT_ALIGN, "%s",
-                  configured ? (on ? "On" : "Off") : "Setup");
-
-        clear(e1003::LIGHT_BUTTON_CLEAR);
-        const e1003::Rect button = e1003::LIGHT_BUTTON_FILL;
-        if (configured && on) {
-          it.filled_rectangle(button.x, button.y, button.w, button.h, BLACK);
-          it.printf(e1003::LIGHT_BUTTON_ANCHOR.x, e1003::LIGHT_BUTTON_ANCHOR.y,
-                    id(font_large), WHITE,
-                    e1003::LIGHT_BUTTON_ALIGN, "%s", "On");
-        } else {
-          it.rectangle(button.x, button.y, button.w, button.h, G3);
-          it.printf(e1003::LIGHT_BUTTON_ANCHOR.x, e1003::LIGHT_BUTTON_ANCHOR.y,
-                    id(font_large), BLACK,
-                    e1003::LIGHT_BUTTON_ALIGN, "%s", configured ? "Off" : "--");
-        }
-
-        clear(e1003::LIGHT_VALUE_CLEAR);
+        clear(e1003::LIGHT_STATE_CONTROL_CLEAR);
+        const e1003::Rect state = e1003::LIGHT_STATE_CONTROL_TRACK;
+        const int state_half = state.w / 2;
+        it.rectangle(state.x, state.y, state.w, state.h, BLACK);
+        it.vertical_line(state.x + state_half, state.y, state.h, BLACK);
         if (configured) {
-          it.printf(e1003::LIGHT_VALUE_ANCHOR.x, e1003::LIGHT_VALUE_ANCHOR.y,
-                    id(font_medium), BLACK,
-                    e1003::LIGHT_VALUE_ALIGN, e1003::LIGHT_VALUE_FORMAT, pct);
-        } else {
-          it.printf(e1003::LIGHT_VALUE_ANCHOR.x, e1003::LIGHT_VALUE_ANCHOR.y,
-                    id(font_medium), BLACK,
-                    e1003::LIGHT_VALUE_ALIGN, "%s", "--");
+          const int active_x = on ? state.x + state_half + 1 : state.x + 1;
+          const int active_w = on ? state.w - state_half - 2 : state_half - 1;
+          it.filled_rectangle(active_x, state.y + 1, active_w, state.h - 2, BLACK);
         }
+
+        it.printf(e1003::LIGHT_OFF_LABEL_ANCHOR.x, e1003::LIGHT_OFF_LABEL_ANCHOR.y,
+                  id(font_medium), configured && !on ? WHITE : BLACK,
+                  e1003::LIGHT_OFF_LABEL_ALIGN, "%s", "OFF");
+        it.printf(e1003::LIGHT_ON_LABEL_ANCHOR.x, e1003::LIGHT_ON_LABEL_ANCHOR.y,
+                  id(font_medium), configured && on ? WHITE : BLACK,
+                  e1003::LIGHT_ON_LABEL_ALIGN, "%s", "ON");
+
+        clear(e1003::LIGHT_CURRENT_CLEAR);
+        if (configured) {
+          it.printf(e1003::LIGHT_CURRENT_ANCHOR.x, e1003::LIGHT_CURRENT_ANCHOR.y,
+                    id(font_tiny), BLACK,
+                    e1003::LIGHT_CURRENT_ALIGN, "Current %d%%", pct);
+        } else {
+          it.printf(e1003::LIGHT_CURRENT_ANCHOR.x, e1003::LIGHT_CURRENT_ANCHOR.y,
+                    id(font_tiny), BLACK,
+                    e1003::LIGHT_CURRENT_ALIGN, "%s", "Not configured");
+        }
+
+        auto draw_preset = [&](const e1003::Rect &clear_rect,
+                               const e1003::Rect &button,
+                               const e1003::Point &anchor,
+                               esphome::display::TextAlign align,
+                               int value,
+                               const char *label) {
+          clear(clear_rect);
+          const bool active = configured && on && pct == value;
+          if (active) {
+            it.filled_rectangle(button.x, button.y, button.w, button.h, BLACK);
+          } else {
+            it.rectangle(button.x, button.y, button.w, button.h, BLACK);
+          }
+          it.printf(anchor.x, anchor.y, id(font_medium),
+                    active ? WHITE : BLACK, align, "%s", label);
+        };
+
+        draw_preset(e1003::LIGHT_PRESET_25_CLEAR,
+                    e1003::LIGHT_PRESET_25_TRACK,
+                    e1003::LIGHT_PRESET_25_LABEL_ANCHOR,
+                    e1003::LIGHT_PRESET_25_LABEL_ALIGN, 25, "25%");
+        draw_preset(e1003::LIGHT_PRESET_50_CLEAR,
+                    e1003::LIGHT_PRESET_50_TRACK,
+                    e1003::LIGHT_PRESET_50_LABEL_ANCHOR,
+                    e1003::LIGHT_PRESET_50_LABEL_ALIGN, 50, "50%");
+        draw_preset(e1003::LIGHT_PRESET_75_CLEAR,
+                    e1003::LIGHT_PRESET_75_TRACK,
+                    e1003::LIGHT_PRESET_75_LABEL_ANCHOR,
+                    e1003::LIGHT_PRESET_75_LABEL_ALIGN, 75, "75%");
+        draw_preset(e1003::LIGHT_PRESET_100_CLEAR,
+                    e1003::LIGHT_PRESET_100_TRACK,
+                    e1003::LIGHT_PRESET_100_LABEL_ANCHOR,
+                    e1003::LIGHT_PRESET_100_LABEL_ALIGN, 100, "100%");
 
         clear(e1003::LIGHT_BAR_CLEAR);
         const e1003::Rect track = e1003::LIGHT_BAR_TRACK;
+        it.filled_rectangle(track.x, track.y, track.w, track.h, G2);
         const int filled = track.w * pct / 100;
         if (configured && filled > 0) {
           it.filled_rectangle(track.x, track.y, filled, track.h, BLACK);
@@ -244,7 +357,8 @@ display:
       };
 
       auto draw_footer = [&]() {
-        clear(e1003::FOOTER_TIME_CLEAR);
+        const e1003::Rect footer = e1003::FOOTER_TIME_CLEAR;
+        it.filled_rectangle(footer.x, footer.y, footer.w, footer.h, G2);
 
         auto now = id(rtc_time).now();
         if (now.is_valid()) {
@@ -256,31 +370,38 @@ display:
 
       if (id(ui_full_redraw)) {
         e1003::draw_rle_bitmap(it);
-        draw_clock();
+        draw_network();
         draw_environment();
         draw_light();
         draw_footer();
 
         id(ui_full_redraw) = false;
-        id(ui_time_dirty) = false;
+        id(ui_network_dirty) = false;
         id(ui_env_dirty) = false;
         id(ui_light_dirty) = false;
         return;
       }
 
-      if (id(ui_time_dirty)) {
-        draw_clock();
-        draw_footer();
-        id(ui_time_dirty) = false;
+      bool drew_partial = false;
+
+      if (id(ui_network_dirty)) {
+        draw_network();
+        id(ui_network_dirty) = false;
+        drew_partial = true;
       }
 
       if (id(ui_env_dirty)) {
         draw_environment();
         id(ui_env_dirty) = false;
+        drew_partial = true;
       }
 
       if (id(ui_light_dirty)) {
         draw_light();
-        draw_footer();
         id(ui_light_dirty) = false;
+        drew_partial = true;
+      }
+
+      if (drew_partial) {
+        draw_footer();
       }

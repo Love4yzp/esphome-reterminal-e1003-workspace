@@ -10,4 +10,4 @@ substitutions:
   refresh_partial_mode: DU
   refresh_full_update_every: 120
   refresh_settle_delay: 250ms
-  refresh_env_interval: 60s
+  refresh_env_interval: 10min

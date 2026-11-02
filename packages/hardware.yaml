@@ -80,24 +80,3 @@ time:
     on_time_sync:
       then:
         - pcf8563.write_time:
-        - if:
-            condition:
-              lambda: |-
-                return id(ui_ready);
-            then:
-              - lambda: |-
-                  id(ui_time_dirty) = true;
-              - script.execute: ui_refresh
-
-    on_time:
-      - minutes: '*'
-        seconds: 0
-        then:
-          - if:
-              condition:
-                lambda: |-
-                  return id(ui_ready);
-              then:
-                - lambda: |-
-                    id(ui_time_dirty) = true;
-                - script.execute: ui_refresh

@@ -6,6 +6,8 @@ substitutions:
   device_name: reterminal-e1003
   firmware_version: "0.2.1"
   default_light_target: ""
+  setup_transport: "usb"
+  status_ap_ssid: ""
 
 esphome:
   name_add_mac_suffix: true

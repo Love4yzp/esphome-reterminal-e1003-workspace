@@ -5,7 +5,7 @@
 //
 // source : layout/ui_layout.yaml
 // tool   : tools/layout_to_h.py
-// built  : 2026-11-01 19:38:52
+// built  : 2026-11-01 23:46:34
 // ============================================================
 
 #include <cstdint>
@@ -54,27 +54,32 @@ struct Zone {
 };
 
 static constexpr Zone ZONES[] = {
-  {"light_toggle", {1569, 513, 1774, 604}, "main_light", ZoneOp::TOGGLE, nullptr, nullptr},
-  {"light_25", {1229, 711, 1346, 784}, "main_light", ZoneOp::CALL, "brightness_pct", "25"},
-  {"light_50", {1359, 711, 1478, 784}, "main_light", ZoneOp::CALL, "brightness_pct", "50"},
-  {"light_75", {1490, 711, 1607, 784}, "main_light", ZoneOp::CALL, "brightness_pct", "75"},
-  {"light_100", {1620, 711, 1738, 784}, "main_light", ZoneOp::CALL, "brightness_pct", "100"},
+  {"light_off", {1507, 508, 1643, 587}, "main_light", ZoneOp::CALL, "state", "off"},
+  {"light_on", {1644, 508, 1781, 587}, "main_light", ZoneOp::CALL, "state", "on"},
+  {"light_25", {1245, 681, 1369, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "25"},
+  {"light_50", {1385, 681, 1509, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "50"},
+  {"light_75", {1524, 681, 1648, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "75"},
+  {"light_100", {1664, 681, 1806, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "100"},
 };
-static constexpr size_t ZONE_COUNT = 5;
+static constexpr size_t ZONE_COUNT = 6;
 
-// ---- card: clock ---------------------------------------
-static constexpr Rect CLOCK_CLEAR{1516, 47, 312, 263};
-static constexpr uint8_t CLOCK_DATE_SOURCE = SOURCE_CLOCK;
-static constexpr Point CLOCK_DATE_ANCHOR{1802, 62};
-static constexpr esphome::display::TextAlign CLOCK_DATE_ALIGN = esphome::display::TextAlign::TOP_RIGHT;
-static constexpr const char *CLOCK_DATE_FORMAT = "%a, %b %d, %Y";
-static constexpr uint8_t CLOCK_TIME_SOURCE = SOURCE_CLOCK;
-static constexpr Point CLOCK_TIME_ANCHOR{1802, 125};
-static constexpr esphome::display::TextAlign CLOCK_TIME_ALIGN = esphome::display::TextAlign::TOP_RIGHT;
-static constexpr const char *CLOCK_TIME_FORMAT = "%H:%M";
-static constexpr uint8_t CLOCK_MESSAGE_SOURCE = SOURCE_TEXT;
-static constexpr Point CLOCK_MESSAGE_ANCHOR{1545, 256};
-static constexpr esphome::display::TextAlign CLOCK_MESSAGE_ALIGN = esphome::display::TextAlign::TOP_LEFT;
+// ---- card: network -------------------------------------
+static constexpr uint8_t NETWORK_STATUS_SOURCE = SOURCE_TEXT;
+static constexpr Rect NETWORK_STATUS_CLEAR{1527, 65, 278, 69};
+static constexpr Point NETWORK_STATUS_ANCHOR{1531, 72};
+static constexpr esphome::display::TextAlign NETWORK_STATUS_ALIGN = esphome::display::TextAlign::TOP_LEFT;
+static constexpr uint8_t NETWORK_ROLE_SOURCE = SOURCE_TEXT;
+static constexpr Rect NETWORK_ROLE_CLEAR{1578, 171, 205, 23};
+static constexpr Point NETWORK_ROLE_ANCHOR{1578, 171};
+static constexpr esphome::display::TextAlign NETWORK_ROLE_ALIGN = esphome::display::TextAlign::TOP_LEFT;
+static constexpr uint8_t NETWORK_NAME_SOURCE = SOURCE_TEXT;
+static constexpr Rect NETWORK_NAME_CLEAR{1578, 197, 205, 29};
+static constexpr Point NETWORK_NAME_ANCHOR{1578, 197};
+static constexpr esphome::display::TextAlign NETWORK_NAME_ALIGN = esphome::display::TextAlign::TOP_LEFT;
+static constexpr uint8_t NETWORK_DETAIL_SOURCE = SOURCE_TEXT;
+static constexpr Rect NETWORK_DETAIL_CLEAR{1578, 253, 210, 31};
+static constexpr Point NETWORK_DETAIL_ANCHOR{1578, 253};
+static constexpr esphome::display::TextAlign NETWORK_DETAIL_ALIGN = esphome::display::TextAlign::TOP_LEFT;
 
 // ---- card: environment ---------------------------------
 static constexpr uint8_t ENV_TEMPERATURE_SOURCE = SOURCE_SENSOR;
@@ -89,23 +94,46 @@ static constexpr esphome::display::TextAlign ENV_HUMIDITY_ALIGN = esphome::displ
 static constexpr const char *ENV_HUMIDITY_FORMAT = "%.0f";
 
 // ---- card: light ---------------------------------------
-static constexpr uint8_t LIGHT_STATE_TEXT_SOURCE = SOURCE_LIGHT_STATE;
-static constexpr Rect LIGHT_STATE_TEXT_CLEAR{1375, 550, 90, 55};
-static constexpr Point LIGHT_STATE_TEXT_ANCHOR{1420, 554};
-static constexpr esphome::display::TextAlign LIGHT_STATE_TEXT_ALIGN = esphome::display::TextAlign::TOP_CENTER;
-static constexpr uint8_t LIGHT_BUTTON_SOURCE = SOURCE_LIGHT_STATE;
-static constexpr Rect LIGHT_BUTTON_CLEAR{1569, 513, 205, 91};
-static constexpr Rect LIGHT_BUTTON_FILL{1580, 525, 183, 67};
-static constexpr Point LIGHT_BUTTON_ANCHOR{1671, 534};
-static constexpr esphome::display::TextAlign LIGHT_BUTTON_ALIGN = esphome::display::TextAlign::TOP_CENTER;
-static constexpr uint8_t LIGHT_VALUE_SOURCE = SOURCE_LIGHT_VALUE;
-static constexpr Rect LIGHT_VALUE_CLEAR{1387, 673, 100, 36};
-static constexpr Point LIGHT_VALUE_ANCHOR{1395, 673};
-static constexpr esphome::display::TextAlign LIGHT_VALUE_ALIGN = esphome::display::TextAlign::TOP_LEFT;
-static constexpr const char *LIGHT_VALUE_FORMAT = "%d%%";
+static constexpr uint8_t LIGHT_STATE_CONTROL_SOURCE = SOURCE_LIGHT_STATE;
+static constexpr Rect LIGHT_STATE_CONTROL_CLEAR{1503, 504, 282, 88};
+static constexpr Rect LIGHT_STATE_CONTROL_TRACK{1507, 508, 274, 79};
+static constexpr uint8_t LIGHT_OFF_LABEL_SOURCE = SOURCE_LIGHT_STATE;
+static constexpr Point LIGHT_OFF_LABEL_ANCHOR{1575, 548};
+static constexpr esphome::display::TextAlign LIGHT_OFF_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
+static constexpr uint8_t LIGHT_ON_LABEL_SOURCE = SOURCE_LIGHT_STATE;
+static constexpr Point LIGHT_ON_LABEL_ANCHOR{1713, 548};
+static constexpr esphome::display::TextAlign LIGHT_ON_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
+static constexpr uint8_t LIGHT_CURRENT_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Rect LIGHT_CURRENT_CLEAR{1644, 648, 162, 30};
+static constexpr Point LIGHT_CURRENT_ANCHOR{1806, 650};
+static constexpr esphome::display::TextAlign LIGHT_CURRENT_ALIGN = esphome::display::TextAlign::TOP_RIGHT;
+static constexpr uint8_t LIGHT_PRESET_25_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Rect LIGHT_PRESET_25_CLEAR{1242, 678, 130, 82};
+static constexpr Rect LIGHT_PRESET_25_TRACK{1245, 681, 124, 75};
+static constexpr uint8_t LIGHT_PRESET_25_LABEL_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Point LIGHT_PRESET_25_LABEL_ANCHOR{1307, 719};
+static constexpr esphome::display::TextAlign LIGHT_PRESET_25_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
+static constexpr uint8_t LIGHT_PRESET_50_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Rect LIGHT_PRESET_50_CLEAR{1382, 678, 130, 82};
+static constexpr Rect LIGHT_PRESET_50_TRACK{1385, 681, 124, 75};
+static constexpr uint8_t LIGHT_PRESET_50_LABEL_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Point LIGHT_PRESET_50_LABEL_ANCHOR{1447, 719};
+static constexpr esphome::display::TextAlign LIGHT_PRESET_50_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
+static constexpr uint8_t LIGHT_PRESET_75_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Rect LIGHT_PRESET_75_CLEAR{1521, 678, 130, 82};
+static constexpr Rect LIGHT_PRESET_75_TRACK{1524, 681, 124, 75};
+static constexpr uint8_t LIGHT_PRESET_75_LABEL_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Point LIGHT_PRESET_75_LABEL_ANCHOR{1586, 719};
+static constexpr esphome::display::TextAlign LIGHT_PRESET_75_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
+static constexpr uint8_t LIGHT_PRESET_100_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Rect LIGHT_PRESET_100_CLEAR{1661, 678, 148, 82};
+static constexpr Rect LIGHT_PRESET_100_TRACK{1664, 681, 142, 75};
+static constexpr uint8_t LIGHT_PRESET_100_LABEL_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Point LIGHT_PRESET_100_LABEL_ANCHOR{1735, 719};
+static constexpr esphome::display::TextAlign LIGHT_PRESET_100_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
 static constexpr uint8_t LIGHT_BAR_SOURCE = SOURCE_LIGHT_VALUE;
-static constexpr Rect LIGHT_BAR_CLEAR{1501, 674, 277, 45};
-static constexpr Rect LIGHT_BAR_TRACK{1510, 686, 258, 20};
+static constexpr Rect LIGHT_BAR_CLEAR{1242, 780, 567, 45};
+static constexpr Rect LIGHT_BAR_TRACK{1245, 783, 561, 39};
 
 // ---- card: footer --------------------------------------
 static constexpr uint8_t FOOTER_TIME_SOURCE = SOURCE_RTC;
@@ -116,8 +144,8 @@ static constexpr const char *FOOTER_TIME_FORMAT = "%H:%M";
 
 // ---- fonts (defined by layout/generated/fonts.yaml) ----------
 //   id(font_font_tiny)  ->  size 20  (${font_regular})
+//   id(font_font_small)  ->  size 24  (${font_regular})
 //   id(font_font_medium)  ->  size 36  (${font_bold})
 //   id(font_font_large)  ->  size 48  (${font_bold})
-//   id(font_font_number)  ->  size 110  (${font_bold})
 
 }  // namespace e1003

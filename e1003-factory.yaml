@@ -9,6 +9,10 @@
 packages:
   dashboard: !include e1003-base.yaml
 
+substitutions:
+  # An empty AP SSID makes ESPHome use the final MAC-suffixed device name.
+  status_ap_ssid: ""
+
 esphome:
   name_add_mac_suffix: true
   project:

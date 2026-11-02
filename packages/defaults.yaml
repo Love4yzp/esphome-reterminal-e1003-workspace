@@ -18,6 +18,8 @@ substitutions:
   beep_brightness: "50%"
   beep_duration: 80ms
   recovery_ap_ssid: "E1003-Recovery"
+  status_ap_ssid: "${recovery_ap_ssid}"
+  setup_transport: "ap"
 
   # Empty in the factory profile. The personal profile overrides it.
   default_light_target: ""

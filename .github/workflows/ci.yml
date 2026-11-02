@@ -1,0 +1,151 @@
+# Compile the firmware, and on a tag publish a release plus the browser
+# installer. One build job for every trigger; publishing is a separate job so
+# that pull requests never touch the Pages environment or a release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Label for this build (defaults to the tag, else 0.0.0-<sha>)
+        required: false
+
+permissions:
+  contents: write # gh release create
+  pages: write # actions/deploy-pages
+  id-token: write # actions/deploy-pages
+
+# Never cancel a release halfway; a cancelled job would leave a tag published
+# with incomplete assets.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # A cold run downloads ~1.7 GB of ESP-IDF and builds the whole framework.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Cache the ESP-IDF toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/esphome/idf
+          # uv.lock pins the esphome version, which pins ESP-IDF.
+          key: esphome-idf-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Install the pinned toolchain
+        run: uv sync --locked
+
+      - name: Validate the layout
+        run: CONFIG=e1003-factory.yaml uv run python tools/layout_to_h.py --check
+
+      # Catches "edited the layout but forgot to regenerate" before anything
+      # expensive happens. The generated header embeds a build timestamp, so
+      # that one line is ignored.
+      - name: Check layout/generated/ is up to date
+        run: |
+          CONFIG=e1003-factory.yaml uv run python tools/layout_to_h.py
+          git diff --exit-code -I'^// built' -- layout/generated/
+
+      # The factory profile needs only the public recovery AP password.
+      - name: Provide factory setup values
+        run: cp ci/secrets.placeholder.yaml secrets.yaml
+
+      - name: Compile factory firmware
+        run: uv run esphome compile e1003-factory.yaml
+
+      - name: Decide the version label
+        id: version
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME}" >>"$GITHUB_OUTPUT"
+          elif [ -n "${DISPATCH_VERSION}" ]; then
+            echo "value=${DISPATCH_VERSION}" >>"$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0-${GITHUB_SHA::7}" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Assemble the release layout
+        env:
+          # Via the environment, never interpolated into the script body: the
+          # tag name is attacker-controlled enough for GitHub's own guidance
+          # to call this out.
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          uv run python scripts/make_release.py \
+            --config e1003-factory.yaml \
+            --version "${VERSION}" \
+            --out dist --pages-out dist-pages
+
+      # Two artifacts: the release assets, and the installer site the publish job
+      # deploys to Pages.
+      - name: Upload the firmware as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/
+          if-no-files-found: error
+
+      - name: Upload the installer site as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist-pages/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: dist-pages
+
+      # Re-running a failed workflow for the same tag must not fail here.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the installer site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-pages
+
+      - name: Deploy to Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

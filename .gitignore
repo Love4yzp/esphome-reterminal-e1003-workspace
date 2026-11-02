@@ -9,3 +9,7 @@ __pycache__/
 
 # uv-managed local Python environment
 /.venv/
+
+# Release artifacts assembled by scripts/make_release.py
+/dist/
+/dist-pages/

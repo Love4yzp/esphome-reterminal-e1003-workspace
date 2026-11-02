@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E1003 Smart Workspace &mdash; install</title>
+<!-- Pinned on purpose: a floating tag would let a third-party release change
+     what this page loads. Bump deliberately. -->
+<script type="module"
+        src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+<style>
+  :root {
+    --ink: #14161a;
+    --muted: #5d646e;
+    --line: #dfe3e8;
+    --paper: #f7f5f0;
+    --accent: #1f5f4b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.25rem 4rem;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 44rem; margin: 0 auto; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 2rem; font-variant-numeric: tabular-nums; }
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: .625rem;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
+       color: var(--muted); margin: 0 0 .75rem; font-weight: 600; }
+  ol, ul { margin: 0; padding-left: 1.25rem; }
+  li { margin-bottom: .5rem; }
+  li:last-child { margin-bottom: 0; }
+  code {
+    background: var(--paper); border: 1px solid var(--line); border-radius: .25rem;
+    padding: .1rem .35rem; font-size: .875em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  esp-web-install-button { --esp-tools-button-color: var(--accent); }
+  .note { border-left: 3px solid var(--accent); background: #fff; padding: 1rem 1.25rem;
+          border-radius: 0 .375rem .375rem 0; margin-bottom: 1.25rem; font-size: .9375rem; }
+  .warn { border-left-color: #a4462c; }
+  footer { color: var(--muted); font-size: .875rem; margin-top: 2rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">E1003 Smart Workspace</h1>
+  <p class="sub" id="version">loading version&hellip;</p>
+
+  <div class="card">
+    <h2>Flash over USB</h2>
+    <p style="margin-top:0">Plug the panel in with a USB-C <strong>data</strong> cable, then:</p>
+    <p><esp-web-install-button manifest="manifest.json"></esp-web-install-button></p>
+    <p style="margin-bottom:0; color:var(--muted); font-size:.9375rem">
+      Needs Chrome, Edge or another Chromium browser. Safari and Firefox cannot
+      talk to the serial port. Everything runs locally &mdash; the firmware is
+      flashed straight from this page.
+    </p>
+  </div>
+
+  <div class="note">
+    <strong>After flashing, keep the USB cable connected.</strong> The installer
+    will offer a Wi-Fi setup dialog through Improv Serial. Enter your network
+    there; the credentials are saved on the panel.
+  </div>
+
+  <div class="note">
+    <strong>If the USB Wi-Fi dialog does not appear, use the fallback hotspot:</strong>
+    <ol style="margin-top:.5rem">
+      <li>Join the network whose name starts with
+          <code>reterminal-e1003-ha-</code>, password
+          <code>@@AP_PASSWORD@@</code>.</li>
+      <li>A setup page opens by itself (if not, browse to
+          <code>192.168.4.1</code>).</li>
+      <li>Enter your Wi-Fi details. The panel reboots and paints the dashboard.</li>
+      <li>Add it in Home Assistant. Home Assistant sets a unique API encryption
+          key during the first connection.</li>
+    </ol>
+  </div>
+
+  <div class="note warn">
+    <strong>Factory setup image.</strong> This build contains no home Wi-Fi or
+    API encryption key. The fallback portal and its web updater stop when the
+    provisioning window closes. For routine OTA updates, adopt the source
+    configuration with your own secrets &mdash; see
+    <a href="@@REPO_URL@@">the repository</a>.
+  </div>
+
+  <div class="card">
+    <h2>Without a browser</h2>
+    <p style="margin-top:0">Both ESPHome build artifacts are attached to every release:</p>
+    <ul>
+      <li><code>firmware.factory.bin</code> &mdash; full image, flash at offset 0
+          with esptool for a first install.</li>
+      <li><code>firmware.ota.bin</code> &mdash; application image for the
+          temporary captive-portal updater or a developer-owned profile.</li>
+    </ul>
+    <p style="margin-bottom:0; color:var(--muted); font-size:.9375rem">
+      The factory profile has no persistent native OTA service. Use USB for
+      routine recovery, or build the personal profile with private API and OTA
+      credentials.
+    </p>
+  </div>
+
+  <footer>
+    Firmware is built by GitHub Actions from the tagged source; the same files
+    are attached to the matching release.
+  </footer>
+</main>
+
+<script>
+  // Show the version that was actually deployed next to this page, so the
+  // browser installer and the release can never disagree.
+  fetch("manifest.json", { cache: "no-store" })
+    .then((response) => response.json())
+    .then((manifest) => {
+      document.getElementById("title").textContent = manifest.name;
+      document.getElementById("version").textContent =
+        manifest.version + " \u00b7 " + manifest.builds[0].chipFamily;
+    })
+    .catch(() => {
+      document.getElementById("version").textContent = "version unavailable";
+    });
+</script>
+</body>
+</html>

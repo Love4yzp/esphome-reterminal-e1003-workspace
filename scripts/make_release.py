@@ -37,8 +37,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
@@ -48,25 +46,6 @@ import layout_to_h  # noqa: E402  (needs the sys.path entry above)
 # {{...}} is what ESPHome uses for substitutions and is also a plausible
 # password value, so it would collide.
 TOKEN = re.compile(r"@@([A-Z_]+)@@")
-
-
-def read_placeholder(path: Path) -> dict:
-    """The public placeholder credentials a release is built from.
-
-    Read from the very file the firmware was compiled with, so the published
-    page can never disagree with the device.
-    """
-    if not path.is_file():
-        raise Problem(f"{path} is missing; cannot fill in the installer page")
-    try:
-        data = yaml.safe_load(path.read_text()) or {}
-    except yaml.YAMLError as exc:
-        # Most likely --ap-secrets was pointed at a config file (they contain
-        # !include/!lambda, which plain YAML cannot parse).
-        raise Problem(f"cannot read {path}: {exc}") from exc
-    if len(str(data.get("ap_password", ""))) < 8:
-        raise Problem(f"ap_password in {path.name} is missing or shorter than 8 characters")
-    return data
 
 
 def fill_installer(template: str, values: dict[str, str]) -> str:
@@ -230,10 +209,6 @@ def main(argv: list[str]) -> int:
         "--installer", type=Path, default=ROOT / "web" / "install.html",
         help="template copied to the installer page",
     )
-    parser.add_argument(
-        "--ap-secrets", type=Path, default=ROOT / "ci" / "secrets.placeholder.yaml",
-        help="file the fallback AP password is read from",
-    )
     parser.add_argument("--repo-url", default=None, help="default: the origin remote")
     args = parser.parse_args(argv)
 
@@ -247,8 +222,6 @@ def main(argv: list[str]) -> int:
         check_image(factory)
         check_image(ota)
         chip = read_chip(build_dir)
-        placeholder = read_placeholder(args.ap_secrets)
-
         substitutions = layout_to_h.entry_substitutions()
         device = substitutions.get("device_name", "esp32")
         name = substitutions.get("friendly_name", device)
@@ -293,7 +266,6 @@ def main(argv: list[str]) -> int:
             pages.mkdir(parents=True)
 
             values = {
-                "AP_PASSWORD": str(placeholder["ap_password"]),
                 "REPO_URL": args.repo_url
                 or git("remote", "get-url", "origin", fallback="").removesuffix(".git"),
             }

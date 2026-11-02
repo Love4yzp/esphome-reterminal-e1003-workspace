@@ -69,19 +69,16 @@
   </div>
 
   <div class="note">
-    <strong>After flashing, keep the USB cable connected.</strong> The installer
-    will offer a Wi-Fi setup dialog through Improv Serial. Enter your network
-    there; the credentials are saved on the panel.
+    <strong>After flashing, connect to the panel's setup Wi-Fi.</strong>
+    Join the open network whose name starts with
+    <code>reterminal-e1003-</code>. No password is required.
   </div>
 
   <div class="note">
-    <strong>If the USB Wi-Fi dialog does not appear, use the fallback hotspot:</strong>
+    <strong>Configure the network:</strong>
     <ol style="margin-top:.5rem">
-      <li>Join the network whose name starts with
-          <code>reterminal-e1003-ha-</code>, password
-          <code>@@AP_PASSWORD@@</code>.</li>
-      <li>A setup page opens by itself (if not, browse to
-          <code>192.168.4.1</code>).</li>
+      <li>The setup page should open automatically. If it does not, browse to
+          <code>192.168.4.1</code>.</li>
       <li>Enter your Wi-Fi details. The panel reboots and paints the dashboard.</li>
       <li>Add it in Home Assistant. Home Assistant sets a unique API encryption
           key during the first connection.</li>
@@ -89,10 +86,10 @@
   </div>
 
   <div class="note warn">
-    <strong>Factory setup image.</strong> This build contains no home Wi-Fi or
-    API encryption key. The fallback portal and its web updater stop when the
-    provisioning window closes. For routine OTA updates, adopt the source
-    configuration with your own secrets &mdash; see
+    <strong>Open-source setup image.</strong> This build contains no home Wi-Fi,
+    AP password, API encryption key, or Home Assistant entity ID. The setup
+    window stays available for 24 hours and reopens after a reboot. Source and
+    build instructions are in
     <a href="@@REPO_URL@@">the repository</a>.
   </div>
 
@@ -103,12 +100,11 @@
       <li><code>firmware.factory.bin</code> &mdash; full image, flash at offset 0
           with esptool for a first install.</li>
       <li><code>firmware.ota.bin</code> &mdash; application image for the
-          temporary captive-portal updater or a developer-owned profile.</li>
+          captive-portal updater after initial setup.</li>
     </ul>
     <p style="margin-bottom:0; color:var(--muted); font-size:.9375rem">
-      The factory profile has no persistent native OTA service. Use USB for
-      routine recovery, or build the personal profile with private API and OTA
-      credentials.
+      The published profile has no persistent native OTA service. Use USB or
+      the captive-portal updater for recovery.
     </p>
   </div>
 

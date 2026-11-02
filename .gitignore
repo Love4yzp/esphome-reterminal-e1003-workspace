@@ -1,7 +1,7 @@
 # ESPHome build cache -- regenerated on the next compile
 /.esphome/
 
-# Local secrets: Wi-Fi, AP hotspot password, API encryption key
+# Optional local secrets used only by custom downstream profiles
 /secrets.yaml
 
 # Python bytecode from the tools/ generators

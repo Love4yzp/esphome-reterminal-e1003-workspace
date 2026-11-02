@@ -1,29 +1,26 @@
-# Developer build: shared dashboard plus local credentials.
-# Use e1003-release.yaml for the keyless USB reference profile or
-# e1003-factory.yaml for the public browser-install profile.
-# Build on every platform with:
-#   uv run python scripts/build.py compile
-
-substitutions:
-  default_light_target: light.deskside_lamp
+# Open-source default firmware.
+#
+# No Wi-Fi SSID, Wi-Fi password, AP password, API key, or control target is
+# compiled into this image. On first boot the panel starts the open setup AP
+# named by `setup_ap_ssid`; join it and open http://192.168.4.1.
 
 packages:
   dashboard: !include e1003-base.yaml
-  direct_state: !include packages/ha-direct-state.yaml
 
 api:
+  # Home Assistant provisions a unique key on first connection.
   encryption:
-    key: !secret api_encryption_key
-
-ota:
-  - platform: esphome
-    encryption:
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
   ap:
-    ssid: ${recovery_ap_ssid}
-    password: !secret ap_password
+    ssid: ${setup_ap_ssid}
 
 captive_portal:
+
+improv_serial:
+  next_url: https://my.home-assistant.io/redirect/config_flow_start/?domain=esphome
+
+# Keep first-run setup available for a full day. A reboot reopens the window.
+# It closes immediately after Wi-Fi and the API encryption key are provisioned.
+provisioning:
+  timeout: 24h

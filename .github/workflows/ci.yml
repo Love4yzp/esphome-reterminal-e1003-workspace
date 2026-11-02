@@ -59,10 +59,6 @@ jobs:
           CONFIG=e1003-factory.yaml uv run python tools/layout_to_h.py
           git diff --exit-code -I'^// built' -- layout/generated/
 
-      # The factory profile needs only the public recovery AP password.
-      - name: Provide factory setup values
-        run: cp ci/secrets.placeholder.yaml secrets.yaml
-
       - name: Compile factory firmware
         run: uv run esphome compile e1003-factory.yaml
 

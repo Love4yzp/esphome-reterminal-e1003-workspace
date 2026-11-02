@@ -1,6 +1,6 @@
-# Shared substitutions for both firmware profiles.
+# Shared substitutions for every firmware profile.
 substitutions:
-  device_name: reterminal-e1003-ha
+  device_name: reterminal-e1003
   friendly_name: "E1003 Smart Workspace"
 
   board: seeed_xiao_esp32s3
@@ -17,11 +17,11 @@ substitutions:
   log_level: INFO
   beep_brightness: "50%"
   beep_duration: 80ms
-  recovery_ap_ssid: "E1003-Recovery"
-  status_ap_ssid: "${recovery_ap_ssid}"
+  setup_ap_ssid: "E1003-Setup"
+  status_ap_ssid: "${setup_ap_ssid}"
   setup_transport: "ap"
 
-  # Empty in the factory profile. The personal profile overrides it.
+  # Public firmware starts without a Home Assistant target.
   default_light_target: ""
 
   font_regular: "assets/fonts/LiberationSans-Regular.ttf"

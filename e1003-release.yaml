@@ -1,4 +1,4 @@
-# Release prototype: no personal credentials or secrets.yaml required.
+# USB-only reference profile. No credentials or secrets.yaml are required.
 packages:
   dashboard: !include e1003-base.yaml
 
@@ -16,7 +16,6 @@ esphome:
     version: ${firmware_version}
 
 # Reference API access is plaintext-only; HA cannot install an encryption key.
-# The developer entry point keeps its separate encrypted API configuration.
 api:
   reboot_timeout: 0s
 

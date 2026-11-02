@@ -1,10 +1,9 @@
 # Public first-install profile.
 #
-# No station Wi-Fi or API key is compiled into this image. ESP Web Tools can
-# hand over Wi-Fi through Improv Serial; the captive portal is the fallback.
-# Home Assistant provisions a unique API key during the first connection.
-# Captive portal support brings ESPHome's web-server updater with it, but the
-# HTTP listener is stopped when the provisioning window closes.
+# No station Wi-Fi, AP password, API key, or control target is compiled into
+# this image. The open captive-portal AP is the primary setup path; Improv
+# Serial is an additional USB path. Home Assistant provisions a unique API key
+# during the first connection.
 
 packages:
   dashboard: !include e1003-base.yaml
@@ -23,8 +22,8 @@ api:
   encryption:
 
 wifi:
-  ap:
-    password: !secret ap_password
+  # Empty AP settings use the MAC-suffixed device name and no password.
+  ap: {}
 
 captive_portal:
 
@@ -32,4 +31,4 @@ improv_serial:
   next_url: https://my.home-assistant.io/redirect/config_flow_start/?domain=esphome
 
 provisioning:
-  timeout: 15min
+  timeout: 24h

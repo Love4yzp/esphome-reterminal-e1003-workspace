@@ -33,24 +33,43 @@ panel is a service call — no rebuild, no OTA.
 ## Project structure
 
 ```
-e1003-dashboard.yaml            # canonical firmware entry point
-e1003-base.yaml                 # shared package assembly
-├── layout/
-│   ├── ui_layout.yaml          # ← single source of truth: zones, cards, fonts, palette
-│   └── generated/              # ← generated: ui_layout.h, fonts.yaml, policy.yaml
+.
+├── e1003-dashboard.yaml        # canonical firmware entry point
+├── e1003-base.yaml             # shared package assembly
 ├── packages/
+│   ├── defaults.yaml           # identity, pins, fonts, and shared defaults
 │   ├── core.yaml               # identity and ESP32-S3 platform
 │   ├── hardware.yaml           # SPI/I2C, buzzer, SHT4x, PCF8563
 │   ├── ui.yaml                 # boot, dirty flags, refresh and rendering
 │   ├── interaction.yaml        # runtime config, GT911 and HA actions
 │   ├── ha-direct-state.yaml    # optional fixed-target adapter for custom builds
 │   └── ha-pull.yaml            # optional: device polls HA for JSON
-├── src/e1003_render.h          # C++ helpers (bitmap decoder)
-├── assets/                     # design PNG, generated bitmap header, vendored fonts
-├── tools/                      # png_to_h.py, layout_to_h.py
-├── ha/e1003_dashboard.yaml     # Home Assistant package: routing script + examples
-├── docs/                       # architecture, configuration, layout, HA, build
-└── scripts/                    # build.py (one entry point for Linux/Windows/macOS)
+├── layout/
+│   ├── ui_layout.yaml          # zones, cards, fonts, palette, and refresh policy
+│   └── generated/              # generated header, fonts, and policy
+├── assets/
+│   ├── original.png            # static UI design source
+│   ├── dashboard_static_v4.h   # generated PackBits-RLE bitmap
+│   └── fonts/                  # vendored Liberation Sans fonts
+├── src/
+│   └── e1003_render.h          # bitmap decoder and render helpers
+├── tools/
+│   ├── layout_to_h.py          # validate and generate layout files
+│   └── png_to_h.py             # convert the design PNG to a C++ header
+├── scripts/
+│   ├── build.py                # cross-platform build, flash, and log driver
+│   └── make_release.py         # assemble release and browser-install artifacts
+├── ha/
+│   ├── blueprints/automation/
+│   │   └── e1003_light_sync.yaml
+│   └── e1003_dashboard.yaml    # sample HA package and pull snapshot
+├── web/
+│   └── install.html            # browser installer template
+├── docs/                       # architecture, configuration, layout, HA, and build guides
+├── .github/workflows/ci.yml    # validation, build, release, and Pages deployment
+├── pyproject.toml              # pinned Python and ESPHome dependencies
+├── uv.lock                     # reproducible toolchain lockfile
+└── AGENTS.md                   # repository rules for coding agents
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the detailed firmware architecture and package breakdown.

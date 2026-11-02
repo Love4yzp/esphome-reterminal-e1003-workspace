@@ -13,3 +13,6 @@ __pycache__/
 # Release artifacts assembled by scripts/make_release.py
 /dist/
 /dist-pages/
+
+# Local design previews and generated architecture pages
+/.tmp/

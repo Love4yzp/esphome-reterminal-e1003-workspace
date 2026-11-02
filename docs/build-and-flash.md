@@ -111,6 +111,10 @@ the factory image.
 - Default profile: join `E1003-Setup` and open `192.168.4.1`.
 - Factory profile: join the open MAC-suffixed AP. If the provisioning window
   expired, reboot to reopen it. USB Improv Serial remains available.
+- Saved Wi-Fi no longer available: reboot and wait for the fallback setup AP,
+  then save the replacement network through the captive portal.
+- mDNS discovery unavailable: read the station IP from the panel's network card
+  and add the ESPHome integration manually with that address.
 - If firmware is unbootable, hold BOOT and flash the factory image over USB.
 
 ## Build artifacts

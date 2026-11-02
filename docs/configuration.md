@@ -140,7 +140,7 @@ request a JSON snapshot instead; PUSH is simpler and should be the default.
 | Change | Rebuild? |
 |---|---|
 | controlled light, displayed state/value, or hook | no |
-| Wi-Fi credentials | no, use the captive portal or USB Improv Serial |
+| Wi-Fi credentials | no, use the fallback captive portal or USB Improv Serial |
 | card/button count, geometry, fonts or artwork | yes |
 | pins, board or display model | yes |
 | adding/removing an ESPHome module | yes |

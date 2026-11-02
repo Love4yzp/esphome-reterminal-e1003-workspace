@@ -1,0 +1,36 @@
+# Public first-install profile.
+#
+# No station Wi-Fi or API key is compiled into this image. ESP Web Tools can
+# hand over Wi-Fi through Improv Serial; the captive portal is the fallback.
+# Home Assistant provisions a unique API key during the first connection.
+# Captive portal support brings ESPHome's web-server updater with it, but the
+# HTTP listener is stopped when the provisioning window closes.
+
+packages:
+  defaults: !include packages/defaults.yaml
+  policy: !include layout/generated/policy.yaml
+  core: !include packages/core.yaml
+  hardware: !include packages/hardware.yaml
+  ui: !include packages/ui.yaml
+  interaction: !include packages/interaction.yaml
+
+esphome:
+  name_add_mac_suffix: true
+  project:
+    name: spencer.e1003-dashboard
+    version: "1.0"
+
+api:
+  encryption:
+
+wifi:
+  ap:
+    password: !secret ap_password
+
+captive_portal:
+
+improv_serial:
+  next_url: https://my.home-assistant.io/redirect/config_flow_start/?domain=esphome
+
+provisioning:
+  timeout: 15min

@@ -121,16 +121,19 @@ script:
     sequence:
       - variables:
           target: "{{ states('input_text.e1003_main_light') }}"
+          snapshot:
+            message: "{{ states('input_text.e1003_message') }}"
+            state: "{{ states(target) }}"
+            value: >-
+              {{ ((state_attr(target, 'brightness') or 0) / 2.55)
+                 | round(0) | int | string }}
       - stop: ""
         response_variable: snapshot
-      - variables:
-          value: >-
-            {{ (state_attr(target, 'brightness') or 0) / 2.55 | round(0) | int }}
 
 # -----------------------------------------------------------------------------
 # Optional: keep the panel's light card in sync with the runtime target.
-# Without this the card falls back to the compile-time binding baked into the
-# firmware (`ha_light_entity`), which is fine until you re-target at runtime.
+# The factory profile has no compiled state source, so target/state/value should
+# be pushed together. The blueprint is the easier supported route.
 #
 # Replace the two `text.` entity ids with the ones Home Assistant actually
 # created (Developer Tools > States, search for "main_light").

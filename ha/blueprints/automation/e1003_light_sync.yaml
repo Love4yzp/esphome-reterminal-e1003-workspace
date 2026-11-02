@@ -1,0 +1,59 @@
+blueprint:
+  name: "E1003: configure and sync the main light"
+  description: >-
+    Sets the panel's runtime target and mirrors the selected Home Assistant
+    light state and brightness to the e-paper card.
+  domain: automation
+  input:
+    light_entity:
+      name: Light
+      selector:
+        entity:
+          domain: light
+    panel_target:
+      name: Panel main light target
+      selector:
+        entity:
+          domain: text
+    panel_state:
+      name: Panel main light state
+      selector:
+        entity:
+          domain: text
+    panel_value:
+      name: Panel main light value
+      selector:
+        entity:
+          domain: text
+
+mode: restart
+
+triggers:
+  - trigger: state
+    entity_id: !input light_entity
+  - trigger: homeassistant
+    event: start
+
+variables:
+  light_entity: !input light_entity
+
+actions:
+  - action: text.set_value
+    target:
+      entity_id: !input panel_target
+    data:
+      value: "{{ light_entity }}"
+
+  - action: text.set_value
+    target:
+      entity_id: !input panel_state
+    data:
+      value: "{{ states(light_entity) }}"
+
+  - action: text.set_value
+    target:
+      entity_id: !input panel_value
+    data:
+      value: >-
+        {{ ((state_attr(light_entity, 'brightness') or 0) / 2.55)
+           | round(0) | int }}

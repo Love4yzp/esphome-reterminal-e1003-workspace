@@ -63,7 +63,7 @@ text_sensor:
 
 interval:
   # Poll connectivity without refreshing the panel unless the visible state
-  # actually changes. This also catches fallback AP activation after timeout.
+  # actually changes. This also catches setup AP activation after timeout.
   - interval: 5s
     then:
       - if:

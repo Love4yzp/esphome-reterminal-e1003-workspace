@@ -8,9 +8,10 @@ A **dashboard terminal**, not a smart-home hub. The firmware knows how to:
 2. paint a handful of dynamic cards on top of it,
 3. turn touches into Home Assistant calls.
 
-The public factory image deliberately knows nothing about *which* light those
-calls target. Home Assistant supplies the target and its display state at
-runtime. The personal profile may add one fixed state adapter for convenience.
+Public firmware deliberately knows neither the user's Wi-Fi credentials nor
+*which* light those calls target. The captive portal stores Wi-Fi credentials
+on the device; Home Assistant supplies the control target and display state at
+runtime. A downstream custom build may add the fixed state adapter.
 
 ```
                          Home Assistant
@@ -53,13 +54,12 @@ separate generated data here because a painted rectangle and its usable finger
 target are not always identical. Both still come from one layout file, so there
 is no duplicated coordinate source.
 
-`e1003-dashboard.yaml` is the developer entry point with private Wi-Fi,
-encrypted API and OTA. `e1003-release.yaml` is the keyless USB reference
-profile: it adds serial Improv, per-device identity, and plaintext-only API
-access without OTA. `e1003-factory.yaml` is the public browser-install profile
-with temporary captive-portal provisioning. All three share the same package
-assembly and runtime interaction model. See [the provisioning guide](provisioning.md)
-for the reference profile's current limitations.
+`e1003-dashboard.yaml` is the open-source default: it starts the open
+`E1003-Setup` AP and serves the captive portal at `192.168.4.1`.
+`e1003-factory.yaml` is the tagged browser-install image with the same flow and
+a MAC-suffixed AP name. `e1003-release.yaml` is the USB-only reference profile
+with serial Improv and plaintext-only API access. All three share the same
+package assembly and runtime interaction model.
 
 ## The dirty-flag contract
 
@@ -123,7 +123,7 @@ assets/original.png ────png_to_h.py─────> assets/dashboard_sta
 
                         src/e1003_render.h                                  (hand-written C++ helpers)
 
-e1003-dashboard.yaml (+ packages/) ─────> personal firmware (network OTA enabled)
+e1003-dashboard.yaml (+ packages/) ─────> open-source AP/captive-portal firmware
 e1003-release.yaml   (+ packages/) ─────> keyless USB reference firmware
 e1003-factory.yaml   (+ packages/) ─────> first-install factory image
 ```

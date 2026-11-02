@@ -1,8 +1,8 @@
-# Optional personal-profile adapter.
+# Optional fixed-target adapter for custom builds.
 #
 # ESPHome requires Home Assistant entity ids to be compile-time literals. This
-# adapter mirrors the personal profile's default light into the runtime text
-# state consumed by the UI. The factory profile omits it and uses HA-side push.
+# adapter mirrors a custom build's default light into the runtime text state
+# consumed by the UI. Public profiles omit it and use HA-side push.
 
 sensor:
   - platform: homeassistant

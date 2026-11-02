@@ -30,7 +30,7 @@ OTA**。
 ## 目录结构
 
 ```
-e1003-dashboard.yaml            # 个人配置:私有 Wi-Fi/API/OTA
+e1003-dashboard.yaml            # 开源默认配置:开放 AP + Captive Portal
 e1003-release.yaml              # 无密钥 USB 参考配置
 e1003-factory.yaml              # 公共浏览器安装配置
 e1003-base.yaml                 # 共享 packages 组装
@@ -42,7 +42,7 @@ e1003-base.yaml                 # 共享 packages 组装
 │   ├── hardware.yaml           # SPI/I2C、蜂鸣器、SHT4x、PCF8563
 │   ├── ui.yaml                 # 启动、脏标记、刷新和渲染
 │   ├── interaction.yaml        # 运行时配置、GT911 和 HA 动作
-│   ├── ha-direct-state.yaml    # 个人配置的可选状态 adapter
+│   ├── ha-direct-state.yaml    # 自定义构建可选的固定目标 adapter
 │   └── ha-pull.yaml            # 可选:设备反向拉取 HA 的 JSON
 ├── src/e1003_render.h          # C++ 辅助函数(RLE 位图解码)
 ├── assets/                     # 设计稿 PNG、生成的位图头文件、内置字体(assets/fonts/)
@@ -54,20 +54,20 @@ e1003-base.yaml                 # 共享 packages 组装
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
 
-参考设计使用维护者预编译的单一 USB 固件，通过 App 配置 Wi-Fi 和灯光目标，参考固件不使用 API 密钥，也没有加密配置项。使用者不需要编辑 YAML 或编译固件，见[配置流程](docs/provisioning.md)。下方快速开始面向固件开发者。
+默认源码构建和浏览器安装固件都不会写入 Wi-Fi 凭据、AP 密码、API key 或
+Home Assistant 实体 ID。首次启动后，设备会发射开放配置热点；用户连接热点并访问
+`192.168.4.1` 即可填写目标 Wi-Fi。需要通过 Improv Serial 配网时，也可以使用
+[USB-only 参考流程](docs/provisioning.md)。
 
 ## 开发者快速开始
 
-首先安装工具链依赖并生成配置文件副本：
+安装工具链依赖：
 
 ```bash
 uv sync
-cp secrets.example.yaml secrets.yaml
 ```
 
-编辑 `secrets.yaml`，填入你的 Wi-Fi 凭据、回退热点密码以及 ESPHome API 加密密钥。
-
-然后编译并烧录固件：
+然后直接编译并烧录零凭据默认固件：
 
 ```bash
 uv run python scripts/build.py run
@@ -76,7 +76,9 @@ uv run python scripts/build.py run
 构建入口会在编译前自动生成布局文件，并在 Linux、Windows 与 macOS 上使用
 同一套命令。完整的构建与烧录细节参见 [docs/build-and-flash.md](docs/build-and-flash.md)。
 
-烧录完成后，在 Home Assistant 中添加设备（**设置 → 设备与服务 → ESPHome**），并将控制项指向目标实体：
+烧录完成后，连接开放热点 `E1003-Setup`，访问 `192.168.4.1` 填写目标
+Wi-Fi。随后在 Home Assistant 中添加设备（**设置 → 设备与服务 → ESPHome**），
+并将控制项指向目标实体：
 
 ```yaml
 action: text.set_value
@@ -108,7 +110,7 @@ data:
 | 灯光按钮的自定义路由 | ✅ | `zone_script_hook` → HA 脚本 |
 | Reachy 场景动作 | ✅ | `reachy_script_hook` → HA 脚本 |
 | 按钮/卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 |
-| 引脚、板型、面板型号、个人默认目标 | ❌ | `packages/defaults.yaml` + `-s key value` |
+| 引脚、板型、面板型号、编译期默认目标 | ❌ | `packages/defaults.yaml` + `-s key value` |
 
 ## 文档指引
 

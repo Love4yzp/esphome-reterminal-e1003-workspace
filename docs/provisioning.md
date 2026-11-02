@@ -1,9 +1,10 @@
 # Reference firmware setup
 
-Maintainers build one USB image. Users configure Wi-Fi and a light entity in
-SenseCraft Solution without editing YAML or compiling firmware. Release 0.2.1
-uses plaintext-only API access, with no encryption selection or key-copy step.
-The separate developer profile retains its own encrypted API and OTA settings.
+This optional reference profile is for clients that configure Wi-Fi and a
+light entity through SenseCraft Solution over USB. The normal open-source
+default instead exposes an open setup AP and captive portal at `192.168.4.1`.
+Release 0.2.1 of the USB-only profile uses plaintext API access, with no
+encryption selection or key-copy step.
 
 ## Maintainer build
 

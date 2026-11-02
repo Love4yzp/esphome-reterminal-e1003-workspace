@@ -2,17 +2,14 @@
 
 ## First connection
 
-For a factory image:
+For the open-source default:
 
 1. Flash `firmware.factory.bin` through the browser installer or USB.
-2. Keep USB connected and use the Improv Serial Wi-Fi dialog.
-3. If Improv is unavailable, join the fallback hotspot whose name starts with
-   `reterminal-e1003-ha-`, then open `192.168.4.1`.
+2. Join the open setup hotspot. The default source build uses `E1003-Setup`;
+   the tagged factory image uses a name starting with `reterminal-e1003-`.
+3. Open `192.168.4.1` and save the destination Wi-Fi credentials.
 4. Add the discovered ESPHome device in Home Assistant. The first connection
    provisions a unique API encryption key.
-
-The personal profile already contains the owner's Wi-Fi and API key from
-`secrets.yaml`, so it can be added by hostname or IP after boot.
 
 The keyless reference profile uses a MAC-suffixed device name and
 plaintext-only API access. Follow [the reference provisioning flow](provisioning.md),
@@ -76,11 +73,11 @@ The right-side status card is event driven:
 | State | Network role/name | Detail |
 |---|---|---|
 | `READY` | connected station SSID | Home Assistant connected/waiting |
-| `CONNECTING` | saved Wi-Fi search | fallback AP will start |
+| `CONNECTING` | saved Wi-Fi search | setup AP will start |
 | `SETUP WI-FI` | active AP SSID | open `192.168.4.1` |
 | `SETUP WI-FI` on release profile | USB setup | use Improv over USB |
 
-When the fallback AP is active it takes display priority, so the shown SSID is
+When the setup AP is active it takes display priority, so the shown SSID is
 the network the user must join. `Last Update` in the footer is repainted only
 when the panel really renders another card.
 
@@ -91,5 +88,5 @@ when the panel really renders another card.
 | no ON/OFF segment is selected | `main_light_target` or mirrored state is empty; create the blueprint automation or set it manually |
 | touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
-| fallback hotspot is unavailable | the 15-minute provisioning window may have closed; reboot the panel |
+| setup hotspot is unavailable | the 24-hour provisioning window may have closed; reboot the panel |
 | touch area is offset | verify the zone on hardware; do not remove the documented mirror conversion |

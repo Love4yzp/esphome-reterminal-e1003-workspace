@@ -5,59 +5,47 @@
 Tagged releases are built from `e1003-factory.yaml`. The factory image contains:
 
 - no station Wi-Fi SSID or password;
+- no AP password;
 - no pre-shared ESPHome API key;
-- Improv Serial provisioning over USB;
-- a captive-portal fallback hotspot;
-- a 15-minute provisioning window;
+- an open MAC-suffixed setup AP;
+- a captive portal at `192.168.4.1`;
+- Improv Serial as an additional USB setup path;
+- a 24-hour provisioning window that reopens after reboot;
 - no persistent ESPHome native OTA service.
 
 Use the browser installer with a USB-C data cable, or flash
-`firmware.factory.bin` at offset 0 with esptool. After flashing, enter Wi-Fi in
-the Improv dialog. If that is unavailable, join the hotspot whose name starts
-with `reterminal-e1003-ha-` using the public password shown on the installer
-page, then open `192.168.4.1`.
+`firmware.factory.bin` at offset 0 with esptool. After flashing, join the open
+hotspot whose name starts with `reterminal-e1003-`, then open `192.168.4.1`
+and enter the destination Wi-Fi credentials. The credentials are saved in NVS
+and reused after reboot.
 
 Home Assistant provisions a unique API encryption key when the device is added
 for the first time. Import the supplied light-sync blueprint afterward to
 select the user's light and keep the card synchronized.
 
 ESPHome's captive portal automatically includes a web updater. In this profile
-its HTTP listener stops when the provisioning window closes, together with the
-fallback hotspot. The release carries `firmware.ota.bin` for that temporary
-recovery path and for developers, but routine updates should use USB or a
-personal profile with encrypted native OTA.
+its HTTP listener is available during setup. The release also carries
+`firmware.ota.bin`; use the captive-portal updater or USB for later updates.
 
-## Personal development profile
+## Build the open-source default
 
-Create `secrets.yaml` from `secrets.example.yaml`:
-
-```bash
-cp secrets.example.yaml secrets.yaml
-```
-
-Set:
-
-- `wifi_ssid`
-- `wifi_password`
-- `ap_password`
-- `api_encryption_key`
-
-Then:
+No `secrets.yaml` is required:
 
 ```bash
 uv sync
 uv run python scripts/build.py run
 ```
 
-`e1003-dashboard.yaml` enables encrypted network OTA and loads
-`packages/ha-direct-state.yaml` for its fixed `default_light_target`.
+`e1003-dashboard.yaml` starts the open `E1003-Setup` AP. Join it and open
+`192.168.4.1`. Override `setup_ap_ssid` only when a downstream build needs a
+different setup name.
 
 ## Keyless USB reference profile
 
 `e1003-release.yaml` is the reference flow documented in
-[Serial provisioning](provisioning.md). It contains no personal Wi-Fi
-credentials, uses Improv Serial, exposes a plaintext-only ESPHome API, and has
-no OTA service. Build it with:
+[Serial provisioning](provisioning.md). It contains no station credentials,
+uses Improv Serial, exposes a plaintext-only ESPHome API, and has no OTA
+service. Build it with:
 
 ```bash
 CONFIG=e1003-release.yaml uv run python scripts/build.py compile
@@ -92,7 +80,7 @@ CONFIG=e1003-factory.yaml uv run python scripts/build.py compile
 
 ```bash
 uv run python scripts/build.py run       # compile + USB/OTA upload + logs
-uv run python scripts/build.py upload    # personal profile network OTA
+uv run python scripts/build.py upload    # upload when the active profile supports it
 uv run python scripts/build.py logs
 uv run python scripts/build.py config
 
@@ -105,10 +93,7 @@ entry point. Raw ESPHome commands also work.
 
 ## Release assembly
 
-CI supplies only the public fallback-hotspot password:
-
 ```bash
-cp ci/secrets.placeholder.yaml secrets.yaml
 CONFIG=e1003-factory.yaml uv run python scripts/build.py compile
 uv run python scripts/make_release.py \
   --config e1003-factory.yaml \
@@ -123,11 +108,9 @@ the factory image.
 
 ## Recovery
 
-- Personal profile: join `E1003-Recovery` and use its captive portal, or flash
-  over USB.
-- Factory profile: USB Improv Serial remains available after provisioning. If
-  the initial unprovisioned window merely timed out, reboot and use Improv or
-  the fallback hotspot.
+- Default profile: join `E1003-Setup` and open `192.168.4.1`.
+- Factory profile: join the open MAC-suffixed AP. If the provisioning window
+  expired, reboot to reopen it. USB Improv Serial remains available.
 - If firmware is unbootable, hold BOOT and flash the factory image over USB.
 
 ## Build artifacts

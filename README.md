@@ -33,7 +33,7 @@ panel is a service call — no rebuild, no OTA.
 ## Project structure
 
 ```
-e1003-dashboard.yaml            # personal profile: private Wi-Fi/API/OTA
+e1003-dashboard.yaml            # open-source default: open setup AP + captive portal
 e1003-release.yaml              # keyless USB reference profile
 e1003-factory.yaml              # public browser-install profile
 e1003-base.yaml                 # shared package assembly
@@ -45,7 +45,7 @@ e1003-base.yaml                 # shared package assembly
 │   ├── hardware.yaml           # SPI/I2C, buzzer, SHT4x, PCF8563
 │   ├── ui.yaml                 # boot, dirty flags, refresh and rendering
 │   ├── interaction.yaml        # runtime config, GT911 and HA actions
-│   ├── ha-direct-state.yaml    # optional personal-profile state adapter
+│   ├── ha-direct-state.yaml    # optional fixed-target adapter for custom builds
 │   └── ha-pull.yaml            # optional: device polls HA for JSON
 ├── src/e1003_render.h          # C++ helpers (bitmap decoder)
 ├── assets/                     # design PNG, generated bitmap header, vendored fonts
@@ -57,23 +57,21 @@ e1003-base.yaml                 # shared package assembly
 
 See [docs/architecture.md](docs/architecture.md) for the detailed firmware architecture and package breakdown.
 
-The [reference setup](docs/provisioning.md) uses one maintainer-built USB image
-and runtime Wi-Fi/light configuration. The reference API uses no key and has no encryption
-option. The developer profile keeps its separate encrypted configuration. App users do not edit YAML or compile firmware.
-The developer quick start below is for building firmware from source.
+The default source build and the public browser-install image contain no Wi-Fi
+credentials, AP password, API key, or Home Assistant entity ID. On first boot
+the panel starts an open setup AP; users join it and open `192.168.4.1`.
+The [USB-only reference setup](docs/provisioning.md) remains available for
+clients that provision through Improv Serial instead.
 
 ## Developer quick start
 
-First, install dependencies and prepare your local configuration file:
+Install dependencies:
 
 ```bash
 uv sync
-cp secrets.example.yaml secrets.yaml
 ```
 
-Edit `secrets.yaml` to fill in your Wi-Fi credentials, fallback hotspot password, and ESPHome API encryption key.
-
-Then compile and flash the firmware:
+Then compile and flash the credential-free default firmware:
 
 ```bash
 uv run python scripts/build.py run
@@ -83,7 +81,9 @@ The build driver regenerates layout headers before compiling and runs identicall
 on Linux, Windows, and macOS. See [docs/build-and-flash.md](docs/build-and-flash.md)
 for detailed build and flashing instructions.
 
-After flashing, add the device in Home Assistant
+After flashing, join the open `E1003-Setup` Wi-Fi network and open
+`192.168.4.1` to enter the destination Wi-Fi credentials. Then add the device
+in Home Assistant
 (**Settings → Devices & Services → ESPHome**) and point a control at your
 target entity:
 
@@ -116,7 +116,7 @@ panel's target/state/value text entities and the light to control.
 | custom light-button routing | ✅ | `zone_script_hook` → an HA script |
 | Reachy scene actions | ✅ | `reachy_script_hook` → an HA script |
 | number/position of buttons, cards, fonts | ❌ | `layout/ui_layout.yaml` + design PNG |
-| pins, board, panel model, personal default target | ❌ | `packages/defaults.yaml` + `-s key value` |
+| pins, board, panel model, compile-time default target | ❌ | `packages/defaults.yaml` + `-s key value` |
 
 ## Documentation
 

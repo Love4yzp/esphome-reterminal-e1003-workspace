@@ -79,8 +79,9 @@ by `packages/interaction.yaml`.
 
 For a new runtime setting, use a `cfg_<thing>` ID, `optimistic: true`, `restore_value: true`, and an appropriate `initial_value`. Reference it from the layout's `runtime:` section where applicable so `layout_to_h.py` can validate its ID. Empty overrides must preserve the existing fallback behavior. Document the setting, its default, and its fallback in `docs/configuration.md`.
 
-Public release builds may use only values from `ci/secrets.placeholder.yaml`;
-every value there is public and may be embedded in firmware or the installer.
+Public release builds must remain credential-free: no station Wi-Fi, AP
+password, API key, or Home Assistant entity ID may be embedded in firmware or
+the installer.
 
 Keep `packages/*.yaml` declarative; move substantial reusable logic into `src/*.h` or scripts. Use short comments to explain reasons and keep architecture explanations in `docs/architecture.md`. Write code and documentation in English; `README.zh-CN.md` is the Chinese entry point.
 

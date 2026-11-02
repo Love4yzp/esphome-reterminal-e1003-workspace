@@ -1,16 +1,16 @@
 # Configuration
 
-The project has three entry points and four shared firmware modules. Choose the
-entry point based on who will receive the panel; do not copy Wi-Fi or API
-credentials into shared packages.
+The project has three credential-free entry points and four shared firmware
+modules. The open-source default starts an open setup AP; no user credentials
+belong in tracked YAML or shared packages.
 
 ## Firmware profiles
 
 | Profile | Intended use | Wi-Fi and API behavior | OTA |
 |---|---|---|---|
-| `e1003-factory.yaml` | public image / first delivery | no station credentials or API key; Wi-Fi is provisioned through Improv Serial or the captive portal; Home Assistant sets the API key on first connection | no persistent native OTA; captive portal has a temporary web updater while provisioning is open |
+| `e1003-dashboard.yaml` | open-source default | open `E1003-Setup` AP; configure Wi-Fi at `192.168.4.1`; Home Assistant sets the API key on first connection | no persistent native OTA; captive portal includes a web updater |
+| `e1003-factory.yaml` | tagged public image | open MAC-suffixed AP; same captive-portal flow as the default profile | no persistent native OTA; captive portal includes a web updater |
 | `e1003-release.yaml` | keyless USB reference flow | no station credentials; Improv Serial; plaintext-only API with MAC-suffixed identity | none |
-| `e1003-dashboard.yaml` | personal development | reads Wi-Fi, fallback AP password and API key from `secrets.yaml` | enabled with API encryption |
 
 The shared modules are:
 
@@ -21,14 +21,15 @@ The shared modules are:
 | `packages/ui.yaml` | boot paint, dirty flags, refresh and rendering |
 | `packages/interaction.yaml` | runtime text entities, touch zones and HA calls |
 
-`packages/ha-direct-state.yaml` is an optional adapter loaded only by the
-personal profile. It mirrors the personal profile's fixed default light into
-the same runtime state entities used by the UI.
+`packages/ha-direct-state.yaml` is an optional adapter for downstream custom
+builds with a compile-time light target. Public profiles omit it and use the
+same runtime state entities as the generic UI.
 
 ## Compile-time substitutions
 
-Shared defaults, pins and fonts live in `packages/defaults.yaml`. The personal
-profile overrides only its default target:
+Shared defaults, pins, fonts, and the default AP name live in
+`packages/defaults.yaml`. Public profiles leave the control target empty.
+A custom downstream build can add a compile-time target:
 
 ```yaml
 substitutions:
@@ -47,10 +48,13 @@ uv run python scripts/build.py compile \
 Geometry and refresh policy come from `layout/ui_layout.yaml`; edit that source
 instead of overriding its generated substitutions.
 
-The [keyless reference profile](provisioning.md) overrides the device name,
-adds a MAC suffix, starts with an empty target, and uses plaintext-only API
-access. It requires no user secrets file. Its `firmware_version` is build-time
-project metadata, not a runtime setting.
+The default AP name is `E1003-Setup`. Override `setup_ap_ssid` at build time to
+rename it; leaving `status_ap_ssid` empty makes the screen use the final device
+name, which is how the MAC-suffixed factory profile reports its actual AP.
+
+The [keyless USB reference profile](provisioning.md) adds a MAC suffix, starts
+with an empty target, and uses plaintext-only API access. Its
+`firmware_version` is build-time project metadata, not a runtime setting.
 
 ## Runtime entities
 
@@ -66,7 +70,7 @@ write. The App waits before restarting and verifying the saved target; see
 |---|---|---|
 | `zone_script_hook` | empty: use direct light mode | optional HA action called for light zones |
 | `reachy_script_hook` | empty: beep only | HA action called by the six Reachy scene zones |
-| `main_light_target` | factory: empty; personal: `default_light_target` | entity controlled by the light zones |
+| `main_light_target` | empty until configured in HA | entity controlled by the light zones |
 | `main_light_state` | empty: no selected ON/OFF segment | display state pushed by HA |
 | `main_light_value` | empty: `0` | display brightness, `0`–`100` |
 
@@ -136,7 +140,7 @@ request a JSON snapshot instead; PUSH is simpler and should be the default.
 | Change | Rebuild? |
 |---|---|
 | controlled light, displayed state/value, or hook | no |
-| Wi-Fi credentials on an already provisioned factory device | no, use USB Improv Serial |
+| Wi-Fi credentials | no, use the captive portal or USB Improv Serial |
 | card/button count, geometry, fonts or artwork | yes |
 | pins, board or display model | yes |
 | adding/removing an ESPHome module | yes |

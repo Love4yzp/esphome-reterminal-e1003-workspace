@@ -6,14 +6,14 @@ These instructions apply throughout this repository.
 
 ESPHome firmware for a reTerminal E1003 e-paper dashboard on a Seeed XIAO ESP32-S3. A design PNG provides the static UI; dynamic cards update via partial refreshes; GT911 touch zones call Home Assistant actions.
 
-Keep control targets, actions, and card text configurable at runtime. The Home Assistant package in `ha/` is a sample, not a supported integration. Design tooling, MQTT, a general-purpose web UI, and LVGL are out of scope; the factory captive portal is the provisioning exception.
+Keep control targets, actions, and card text configurable at runtime. The Home Assistant package in `ha/` is a sample, not a supported integration. Design tooling, MQTT, a general-purpose web UI, and LVGL are out of scope; the provisioning captive portal is the exception.
 
 ## Where to make changes
 
 | Concern | File |
 |---|---|
 | Shared identity, pins, fonts, and defaults | `packages/defaults.yaml` |
-| Profile-specific network, API, OTA, and target defaults | `e1003-dashboard.yaml`, `e1003-release.yaml`, `e1003-factory.yaml` |
+| Network, API, OTA, and target defaults | `e1003-dashboard.yaml` |
 | Shared package assembly | `e1003-base.yaml` |
 | Screen geometry, font sizes, touch zones, cards, refresh policy | `layout/ui_layout.yaml` |
 | Runtime text settings and touch dispatch | `packages/interaction.yaml` |
@@ -73,8 +73,8 @@ top-level semantic control id, runtime text entities in
 
 ## Runtime configuration and style
 
-Put board-wide defaults in `packages/defaults.yaml`, profile-specific values in
-entry-point substitutions, and runtime settings in the `text` entities declared
+Put board-wide defaults in `packages/defaults.yaml`, firmware-specific values
+in `e1003-dashboard.yaml`, and runtime settings in the `text` entities declared
 by `packages/interaction.yaml`.
 
 For a new runtime setting, use a `cfg_<thing>` ID, `optimistic: true`, `restore_value: true`, and an appropriate `initial_value`. Reference it from the layout's `runtime:` section where applicable so `layout_to_h.py` can validate its ID. Empty overrides must preserve the existing fallback behavior. Document the setting, its default, and its fallback in `docs/configuration.md`.
@@ -105,7 +105,6 @@ Pass criteria:
 - `uv run python tools/layout_to_h.py --check` must pass.
 - `uv run python scripts/build.py config` must succeed and report `Configuration is valid!`.
 - `uv run python scripts/build.py compile` must succeed and report `Successfully compiled program.`.
-- Factory changes must also validate or compile with `CONFIG=e1003-factory.yaml`.
 - No new compiler warnings.
 - No unexplained growth in RAM or flash usage compared with the prior build.
 

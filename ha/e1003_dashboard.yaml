@@ -156,7 +156,7 @@ script:
 
 # -----------------------------------------------------------------------------
 # Optional: keep the panel's light card in sync with the runtime target.
-# The factory profile has no compiled state source, so target/state/value should
+# The public firmware has no compiled state source, so target/state/value should
 # be pushed together. The blueprint is the easier supported route.
 #
 # Replace the two `text.` entity ids with the ones Home Assistant actually

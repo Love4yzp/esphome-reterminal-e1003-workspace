@@ -33,9 +33,7 @@ panel is a service call — no rebuild, no OTA.
 ## Project structure
 
 ```
-e1003-dashboard.yaml            # open-source default: open setup AP + captive portal
-e1003-release.yaml              # keyless USB reference profile
-e1003-factory.yaml              # public browser-install profile
+e1003-dashboard.yaml            # canonical firmware entry point
 e1003-base.yaml                 # shared package assembly
 ├── layout/
 │   ├── ui_layout.yaml          # ← single source of truth: zones, cards, fonts, palette
@@ -57,11 +55,11 @@ e1003-base.yaml                 # shared package assembly
 
 See [docs/architecture.md](docs/architecture.md) for the detailed firmware architecture and package breakdown.
 
-The default source build and the public browser-install image contain no Wi-Fi
+The source build and the public browser-install image contain no Wi-Fi
 credentials, AP password, API key, or Home Assistant entity ID. On first boot
 the panel starts an open setup AP; users join it and open `192.168.4.1`.
-The [USB-only reference setup](docs/provisioning.md) remains available for
-clients that provision through Improv Serial instead.
+Improv Serial remains available as an additional USB setup path in the same
+firmware.
 
 ## Developer quick start
 
@@ -81,9 +79,9 @@ The build driver regenerates layout headers before compiling and runs identicall
 on Linux, Windows, and macOS. See [docs/build-and-flash.md](docs/build-and-flash.md)
 for detailed build and flashing instructions.
 
-After flashing, join the open `E1003-Setup` Wi-Fi network and open
-`192.168.4.1` to enter the destination Wi-Fi credentials. Then add the device
-in Home Assistant
+After flashing, join the open Wi-Fi network whose name starts with
+`reterminal-e1003-`, then open `192.168.4.1` to enter the destination Wi-Fi
+credentials. Then add the device in Home Assistant
 (**Settings → Devices & Services → ESPHome**) and point a control at your
 target entity:
 
@@ -97,7 +95,7 @@ data:
 
 Changes take effect immediately without recompilation. See [docs/configuration.md](docs/configuration.md) for available runtime settings.
 
-## Ready-made factory image
+## Ready-made firmware image
 
 Every tagged release ships ready-made images and a browser installer on GitHub
 Pages — plug in USB-C and flash from the page. See

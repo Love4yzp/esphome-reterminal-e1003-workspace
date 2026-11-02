@@ -32,8 +32,8 @@ runtime. A downstream custom build may add the fixed state adapter.
    │              packages/core.yaml                         │
    └─────────────────────────────────────────────────────────┘
 
-   Entry-point profile owns Wi-Fi, API security and OTA:
-   e1003-dashboard.yaml, e1003-release.yaml, or e1003-factory.yaml
+   The canonical entry point owns Wi-Fi, API security and OTA:
+   e1003-dashboard.yaml
 ```
 
 ## Three sources of truth, no overlap
@@ -42,7 +42,7 @@ runtime. A downstream custom build may add the fixed state adapter.
 |---------|--------|-------------|
 | Screen geometry, fonts, touch hit boxes | `layout/ui_layout.yaml` | `tools/layout_to_h.py` → `layout/generated/{ui_layout.h,fonts.yaml,policy.yaml}` |
 | Shared identity and wiring | `packages/defaults.yaml` substitutions | every package |
-| Profile network/security/default target | entry-point YAML | ESPHome merge |
+| Firmware network/security/default target | `e1003-dashboard.yaml` | ESPHome merge |
 | Runtime target and card text/state | Home Assistant `text` entities | `packages/interaction.yaml`, `packages/ui.yaml` |
 
 If a number appears in two places, one of them is a bug. `tools/layout_to_h.py
@@ -54,12 +54,11 @@ separate generated data here because a painted rectangle and its usable finger
 target are not always identical. Both still come from one layout file, so there
 is no duplicated coordinate source.
 
-`e1003-dashboard.yaml` is the open-source default: it starts the open
-`E1003-Setup` AP and serves the captive portal at `192.168.4.1`.
-`e1003-factory.yaml` is the tagged browser-install image with the same flow and
-a MAC-suffixed AP name. `e1003-release.yaml` is the USB-only reference profile
-with serial Improv and plaintext-only API access. All three share the same
-package assembly and runtime interaction model.
+`e1003-dashboard.yaml` is the only supported entry point. It starts an open
+MAC-suffixed setup AP and serves the captive portal at `192.168.4.1`. Improv
+Serial is available as an additional setup path. Source builds, tagged
+releases, and the browser installer use the same package assembly and security
+model.
 
 ## The dirty-flag contract
 
@@ -123,9 +122,7 @@ assets/original.png ────png_to_h.py─────> assets/dashboard_sta
 
                         src/e1003_render.h                                  (hand-written C++ helpers)
 
-e1003-dashboard.yaml (+ packages/) ─────> open-source AP/captive-portal firmware
-e1003-release.yaml   (+ packages/) ─────> keyless USB reference firmware
-e1003-factory.yaml   (+ packages/) ─────> first-install factory image
+e1003-dashboard.yaml (+ packages/) ─────> source, release and browser-install firmware
 ```
 
 Both generators are idempotent and safe to run on every build; `scripts/build.py`

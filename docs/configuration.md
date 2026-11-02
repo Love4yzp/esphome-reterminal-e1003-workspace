@@ -1,16 +1,17 @@
 # Configuration
 
-The project has three credential-free entry points and four shared firmware
-modules. The open-source default starts an open setup AP; no user credentials
-belong in tracked YAML or shared packages.
+The project has one credential-free firmware entry point and four shared
+firmware modules. No user credentials belong in tracked YAML or shared
+packages.
 
-## Firmware profiles
+## Firmware entry point
 
-| Profile | Intended use | Wi-Fi and API behavior | OTA |
-|---|---|---|---|
-| `e1003-dashboard.yaml` | open-source default | open `E1003-Setup` AP; configure Wi-Fi at `192.168.4.1`; Home Assistant sets the API key on first connection | no persistent native OTA; captive portal includes a web updater |
-| `e1003-factory.yaml` | tagged public image | open MAC-suffixed AP; same captive-portal flow as the default profile | no persistent native OTA; captive portal includes a web updater |
-| `e1003-release.yaml` | keyless USB reference flow | no station credentials; Improv Serial; plaintext-only API with MAC-suffixed identity | none |
+`e1003-dashboard.yaml` is the only supported entry point. Source builds, tagged
+releases, and the browser installer all compile it. It starts an open
+MAC-suffixed setup AP, serves the captive portal at `192.168.4.1`, supports
+Improv Serial, and lets Home Assistant provision a unique API encryption key.
+There is no persistent native OTA service; the captive portal includes a web
+updater.
 
 The shared modules are:
 
@@ -22,13 +23,13 @@ The shared modules are:
 | `packages/interaction.yaml` | runtime text entities, touch zones and HA calls |
 
 `packages/ha-direct-state.yaml` is an optional adapter for downstream custom
-builds with a compile-time light target. Public profiles omit it and use the
+builds with a compile-time light target. The public firmware omits it and uses the
 same runtime state entities as the generic UI.
 
 ## Compile-time substitutions
 
-Shared defaults, pins, fonts, and the default AP name live in
-`packages/defaults.yaml`. Public profiles leave the control target empty.
+Shared defaults, pins, and fonts live in `packages/defaults.yaml`. The public
+firmware leaves the control target empty.
 A custom downstream build can add a compile-time target:
 
 ```yaml
@@ -48,13 +49,9 @@ uv run python scripts/build.py compile \
 Geometry and refresh policy come from `layout/ui_layout.yaml`; edit that source
 instead of overriding its generated substitutions.
 
-The default AP name is `E1003-Setup`. Override `setup_ap_ssid` at build time to
-rename it; leaving `status_ap_ssid` empty makes the screen use the final device
-name, which is how the MAC-suffixed factory profile reports its actual AP.
-
-The [keyless USB reference profile](provisioning.md) adds a MAC suffix, starts
-with an empty target, and uses plaintext-only API access. Its
-`firmware_version` is build-time project metadata, not a runtime setting.
+The setup AP uses the final MAC-suffixed device name, such as
+`reterminal-e1003-a1b2c3`. The screen reads the same runtime name, so the setup
+instructions always match the network that the device broadcasts.
 
 ## Runtime entities
 
@@ -63,8 +60,7 @@ with an empty target, and uses plaintext-only API access. Its
 Text settings are normally flushed to flash every 60 seconds. Allow at least
 65 seconds after a change before removing power or performing a hard reset.
 A live API readback confirms the current value, not completion of that flash
-write. The App waits before restarting and verifying the saved target; see
-[reference setup](provisioning.md).
+write.
 
 | Entity suffix | Empty/default behavior | Purpose |
 |---|---|---|
@@ -77,7 +73,7 @@ write. The App waits before restarting and verifying the saved target; see
 The target and its displayed state are deliberately separate. ESPHome can call
 an entity id stored in text at runtime, but a `platform: homeassistant` state
 subscription requires a compile-time literal entity id. Use the supplied
-blueprint to keep target, state and value synchronized in the factory profile.
+blueprint to keep target, state and value synchronized in the public firmware.
 
 ## Direct mode
 

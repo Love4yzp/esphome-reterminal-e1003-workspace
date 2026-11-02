@@ -2,7 +2,8 @@
 
 ## Public first-install image
 
-Tagged releases are built from `e1003-factory.yaml`. The factory image contains:
+Source builds, tagged releases, and the browser installer all compile
+`e1003-dashboard.yaml`. The firmware contains:
 
 - no station Wi-Fi SSID or password;
 - no AP password;
@@ -23,11 +24,11 @@ Home Assistant provisions a unique API encryption key when the device is added
 for the first time. Import the supplied light-sync blueprint afterward to
 select the user's light and keep the card synchronized.
 
-ESPHome's captive portal automatically includes a web updater. In this profile
-its HTTP listener is available during setup. The release also carries
+ESPHome's captive portal automatically includes a web updater. Its HTTP
+listener is available during setup. The release also carries
 `firmware.ota.bin`; use the captive-portal updater or USB for later updates.
 
-## Build the open-source default
+## Build and flash
 
 No `secrets.yaml` is required:
 
@@ -36,20 +37,9 @@ uv sync
 uv run python scripts/build.py run
 ```
 
-`e1003-dashboard.yaml` starts the open `E1003-Setup` AP. Join it and open
-`192.168.4.1`. Override `setup_ap_ssid` only when a downstream build needs a
-different setup name.
-
-## Keyless USB reference profile
-
-`e1003-release.yaml` is the reference flow documented in
-[Serial provisioning](provisioning.md). It contains no station credentials,
-uses Improv Serial, exposes a plaintext-only ESPHome API, and has no OTA
-service. Build it with:
-
-```bash
-CONFIG=e1003-release.yaml uv run python scripts/build.py compile
-```
+`e1003-dashboard.yaml` starts an open MAC-suffixed setup AP. Join the network
+whose name starts with `reterminal-e1003-` and open `192.168.4.1`. Improv
+Serial is available from the same firmware as an additional USB setup path.
 
 ## Minimal validation commands
 
@@ -60,12 +50,10 @@ uv run python tools/layout_to_h.py
 uv run python tools/layout_to_h.py --check
 ```
 
-Validate each ESPHome profile without compiling firmware:
+Validate the ESPHome configuration without compiling firmware:
 
 ```bash
 uv run esphome config e1003-dashboard.yaml
-uv run esphome config e1003-release.yaml
-uv run esphome config e1003-factory.yaml
 ```
 
 Full compilation is reserved for release work or changes that affect C++,
@@ -73,14 +61,13 @@ dependencies, board settings or generated firmware:
 
 ```bash
 uv run python scripts/build.py compile
-CONFIG=e1003-factory.yaml uv run python scripts/build.py compile
 ```
 
 ## Everyday commands
 
 ```bash
 uv run python scripts/build.py run       # compile + USB/OTA upload + logs
-uv run python scripts/build.py upload    # upload when the active profile supports it
+uv run python scripts/build.py upload    # compile and upload
 uv run python scripts/build.py logs
 uv run python scripts/build.py config
 
@@ -88,15 +75,13 @@ uv run python scripts/build.py compile \
   -s default_light_target light.other
 ```
 
-Set `CONFIG=e1003-factory.yaml` to run the build driver against the factory
-entry point. Raw ESPHome commands also work.
+Raw ESPHome commands also work.
 
 ## Release assembly
 
 ```bash
-CONFIG=e1003-factory.yaml uv run python scripts/build.py compile
+uv run python scripts/build.py compile
 uv run python scripts/make_release.py \
-  --config e1003-factory.yaml \
   --version v0.1.0 \
   --out dist \
   --pages-out dist-pages
@@ -108,9 +93,8 @@ the factory image.
 
 ## Recovery
 
-- Default profile: join `E1003-Setup` and open `192.168.4.1`.
-- Factory profile: join the open MAC-suffixed AP. If the provisioning window
-  expired, reboot to reopen it. USB Improv Serial remains available.
+- Join the open MAC-suffixed AP and open `192.168.4.1`. If the provisioning
+  window expired, reboot to reopen it. USB Improv Serial remains available.
 - Saved Wi-Fi no longer available: reboot and wait for the fallback setup AP,
   then save the replacement network through the captive portal.
 - mDNS discovery unavailable: read the station IP from the panel's network card
@@ -136,8 +120,8 @@ separate ESP-IDF installation; unset it when using ESPHome's managed toolchain.
 
 | | size |
 |---|---|
-| RAM | ~33 % |
-| Flash | ~74 % (1359 KB of 1792 KB) |
+| RAM | 31.6 % (108063 bytes of 341760 bytes) |
+| Flash | 70.3 % (1290447 bytes of 1835008 bytes) |
 
 The static bitmap dominates. Dropping an unused font or shrinking the RLE
 (PackBits compresses flat design areas very well) is the cheapest way to claw
@@ -145,7 +129,7 @@ space back.
 
 ## Version pins
 
-ESPHome **2026.9.1** is required: this project uses packages, `text`/`event`
+ESPHome **2026.10.1** is required: this project uses packages, `text`/`event`
 platforms, `homeassistant.action` with `capture_response`, and the
 `substitutions`-aware font schema. Bump it in `pyproject.toml`, run `uv lock`,
 then `uv run esphome compile e1003-dashboard.yaml` and re-check the warnings.

@@ -30,9 +30,7 @@ OTA**。
 ## 目录结构
 
 ```
-e1003-dashboard.yaml            # 开源默认配置:开放 AP + Captive Portal
-e1003-release.yaml              # 无密钥 USB 参考配置
-e1003-factory.yaml              # 公共浏览器安装配置
+e1003-dashboard.yaml            # 唯一正式固件入口
 e1003-base.yaml                 # 共享 packages 组装
 ├── layout/
 │   ├── ui_layout.yaml          # ← 唯一真源:热区、卡片、字体、调色板、刷新策略
@@ -54,10 +52,10 @@ e1003-base.yaml                 # 共享 packages 组装
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。
 
-默认源码构建和浏览器安装固件都不会写入 Wi-Fi 凭据、AP 密码、API key 或
+源码构建和浏览器安装固件都不会写入 Wi-Fi 凭据、AP 密码、API key 或
 Home Assistant 实体 ID。首次启动后，设备会发射开放配置热点；用户连接热点并访问
-`192.168.4.1` 即可填写目标 Wi-Fi。需要通过 Improv Serial 配网时，也可以使用
-[USB-only 参考流程](docs/provisioning.md)。
+`192.168.4.1` 即可填写目标 Wi-Fi。同一份固件也保留 Improv Serial，作为额外的
+USB 配网方式。
 
 ## 开发者快速开始
 
@@ -76,8 +74,9 @@ uv run python scripts/build.py run
 构建入口会在编译前自动生成布局文件，并在 Linux、Windows 与 macOS 上使用
 同一套命令。完整的构建与烧录细节参见 [docs/build-and-flash.md](docs/build-and-flash.md)。
 
-烧录完成后，连接开放热点 `E1003-Setup`，访问 `192.168.4.1` 填写目标
-Wi-Fi。随后在 Home Assistant 中添加设备（**设置 → 设备与服务 → ESPHome**），
+烧录完成后，连接名称以 `reterminal-e1003-` 开头的开放热点，访问
+`192.168.4.1` 填写目标 Wi-Fi。随后在 Home Assistant 中添加设备
+（**设置 → 设备与服务 → ESPHome**），
 并将控制项指向目标实体：
 
 ```yaml
@@ -90,7 +89,7 @@ data:
 
 配置保存后即刻生效，无需重新编译固件。所有运行时可配置项参见 [docs/configuration.md](docs/configuration.md)。
 
-## 现成 factory 固件
+## 现成固件
 
 不想自己编译?每个 tag 的 Release 都带现成固件,GitHub Pages 上还有一个浏览器刷机页
 ——插上 USB-C 就能在网页里直接烧录。见

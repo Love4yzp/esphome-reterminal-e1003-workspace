@@ -2,20 +2,13 @@
 
 ## First connection
 
-For the open-source default:
-
 1. Flash `firmware.factory.bin` through the browser installer or USB.
-2. Join the open setup hotspot. The default source build uses `E1003-Setup`;
-   the tagged factory image uses a name starting with `reterminal-e1003-`.
+2. Join the open setup hotspot whose name starts with `reterminal-e1003-`.
 3. Open `192.168.4.1` and save the destination Wi-Fi credentials.
 4. Add the discovered ESPHome device in Home Assistant. The first connection
    provisions a unique API encryption key.
 
-The keyless reference profile uses a MAC-suffixed device name and
-plaintext-only API access. Follow [the reference provisioning flow](provisioning.md),
-then add the discovered device without an encryption key.
-
-For every profile, enable **Allow the device to perform Home Assistant actions**
+Enable **Allow the device to perform Home Assistant actions**
 in the ESPHome integration options so touches can control the configured target.
 
 ## Panel entities
@@ -44,7 +37,7 @@ entities. The blueprint:
 - converts HA brightness `0`–`255` to panel brightness `0`–`100`;
 - refreshes the values when Home Assistant starts.
 
-This is the normal factory-profile setup. The firmware remains generic and no
+This is the normal setup. The firmware remains generic and no
 user Wi-Fi, API key or entity id is published in the release image.
 
 ## Direct and hook routing
@@ -75,7 +68,6 @@ The right-side status card is event driven:
 | `READY` | Home Assistant connected/waiting + station SSID | current device IP |
 | `CONNECTING` | saved Wi-Fi search | setup AP will start |
 | `SETUP WI-FI` | active AP SSID | open `192.168.4.1` |
-| `SETUP WI-FI` on release profile | USB setup | use Improv over USB |
 
 When the setup AP is active it takes display priority, so the shown SSID is
 the network the user must join. `Last Update` in the footer is repainted only
@@ -95,8 +87,7 @@ network-specific static IP in public firmware.
 ## Changing Wi-Fi
 
 If the saved Wi-Fi is unavailable, the firmware starts its fallback setup AP.
-Join `E1003-Setup` for the default profile, or the MAC-suffixed AP for the
-factory profile, then open `192.168.4.1` and save the new network.
+Join the MAC-suffixed AP, then open `192.168.4.1` and save the new network.
 
 If the old Wi-Fi is still reachable, the panel continues to use it. Temporarily
 make that network unavailable and reboot the panel to enter the fallback flow,

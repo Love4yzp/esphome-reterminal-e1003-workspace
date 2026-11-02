@@ -206,8 +206,7 @@ display:
         if (ap_active) {
           status = "SETUP WI-FI";
           role = "SETUP AP";
-          name = "${status_ap_ssid}";
-          if (name.empty()) name = App.get_name().c_str();
+          name = App.get_name().c_str();
           detail = "Open 192.168.4.1";
         } else if (wifi_connected) {
           status = "READY";
@@ -216,11 +215,6 @@ display:
           if (name.empty()) name = "Connected network";
           const std::string address = id(connected_wifi_ip).state;
           detail = address.empty() ? "IP pending" : "IP " + address;
-        } else if (std::string("${setup_transport}") == "usb") {
-          status = "SETUP WI-FI";
-          role = "USB SETUP";
-          name = "Connect USB cable";
-          detail = "Use Improv over USB";
         } else {
           status = "CONNECTING";
           role = "HOME WI-FI";

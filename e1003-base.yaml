@@ -1,4 +1,4 @@
-# Shared package assembly for developer, reference, and factory profiles.
+# Shared package assembly for the canonical firmware entry point.
 packages:
   defaults: !include packages/defaults.yaml
   policy: !include layout/generated/policy.yaml

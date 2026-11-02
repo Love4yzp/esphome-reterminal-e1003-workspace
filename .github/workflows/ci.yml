@@ -49,18 +49,18 @@ jobs:
         run: uv sync --locked
 
       - name: Validate the layout
-        run: CONFIG=e1003-factory.yaml uv run python tools/layout_to_h.py --check
+        run: uv run python tools/layout_to_h.py --check
 
       # Catches "edited the layout but forgot to regenerate" before anything
       # expensive happens. The generated header embeds a build timestamp, so
       # that one line is ignored.
       - name: Check layout/generated/ is up to date
         run: |
-          CONFIG=e1003-factory.yaml uv run python tools/layout_to_h.py
+          uv run python tools/layout_to_h.py
           git diff --exit-code -I'^// built' -- layout/generated/
 
-      - name: Compile factory firmware
-        run: uv run esphome compile e1003-factory.yaml
+      - name: Compile firmware
+        run: uv run esphome compile e1003-dashboard.yaml
 
       - name: Decide the version label
         id: version
@@ -83,7 +83,6 @@ jobs:
           VERSION: ${{ steps.version.outputs.value }}
         run: |
           uv run python scripts/make_release.py \
-            --config e1003-factory.yaml \
             --version "${VERSION}" \
             --out dist --pages-out dist-pages
 

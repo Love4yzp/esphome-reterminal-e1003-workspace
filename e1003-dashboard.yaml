@@ -1,19 +1,26 @@
-# Open-source default firmware.
+# Canonical open-source firmware.
 #
 # No Wi-Fi SSID, Wi-Fi password, AP password, API key, or control target is
-# compiled into this image. On first boot the panel starts the open setup AP
-# named by `setup_ap_ssid`; join it and open http://192.168.4.1.
+# compiled into this image. Source builds, tagged releases, and the browser
+# installer all use this entry point.
 
 packages:
   dashboard: !include e1003-base.yaml
+
+esphome:
+  # Public devices need unique hostnames and setup AP names.
+  name_add_mac_suffix: true
+  project:
+    name: spencer.e1003-dashboard
+    version: "1.0"
 
 api:
   # Home Assistant provisions a unique key on first connection.
   encryption:
 
 wifi:
-  ap:
-    ssid: ${setup_ap_ssid}
+  # Empty AP settings use the final MAC-suffixed device name and no password.
+  ap: {}
 
 captive_portal:
 

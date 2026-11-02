@@ -197,8 +197,8 @@ def esphome_version() -> str:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--config", type=Path, default=ROOT / "e1003-factory.yaml",
-        help="factory entry point used for substitutions and build selection",
+        "--config", type=Path, default=ROOT / "e1003-dashboard.yaml",
+        help="firmware entry point used for substitutions and build selection",
     )
     parser.add_argument("--build-dir", type=Path, help="default: auto-detect under .esphome/build")
     parser.add_argument("--version", default=git("describe", "--tags", "--always", fallback="0.0.0"))

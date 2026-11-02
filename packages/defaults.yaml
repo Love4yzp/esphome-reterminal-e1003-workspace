@@ -17,9 +17,6 @@ substitutions:
   log_level: INFO
   beep_brightness: "50%"
   beep_duration: 80ms
-  setup_ap_ssid: "E1003-Setup"
-  status_ap_ssid: "${setup_ap_ssid}"
-  setup_transport: "ap"
 
   # Public firmware starts without a Home Assistant target.
   default_light_target: ""

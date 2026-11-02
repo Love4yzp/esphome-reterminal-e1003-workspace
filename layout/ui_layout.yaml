@@ -113,6 +113,42 @@ zones:
     op: call
     data: { brightness_pct: "100" }
 
+  - id: reachy_retail_intro
+    label: "Reachy retail intro scene"
+    area: { x1: 1372, y1: 950, x2: 1507, y2: 1077 }
+    op: script
+    data: { action: "retail_intro" }
+
+  - id: reachy_space_intro
+    label: "Reachy space intro scene"
+    area: { x1: 1523, y1: 950, x2: 1660, y2: 1077 }
+    op: script
+    data: { action: "space_intro" }
+
+  - id: reachy_rescue_intro
+    label: "Reachy rescue intro scene"
+    area: { x1: 1674, y1: 950, x2: 1810, y2: 1077 }
+    op: script
+    data: { action: "rescue_intro" }
+
+  - id: reachy_stop
+    label: "Stop Reachy scene"
+    area: { x1: 1372, y1: 1092, x2: 1507, y2: 1227 }
+    op: script
+    data: { action: "stop" }
+
+  - id: reachy_wake
+    label: "Wake Reachy"
+    area: { x1: 1523, y1: 1092, x2: 1660, y2: 1227 }
+    op: script
+    data: { action: "wake" }
+
+  - id: reachy_language
+    label: "Switch Reachy language"
+    area: { x1: 1674, y1: 1092, x2: 1810, y2: 1227 }
+    op: script
+    data: { action: "language" }
+
 # -----------------------------------------------------------------------------
 # CARDS  (dynamic regions painted on top of the static bitmap)
 # -----------------------------------------------------------------------------

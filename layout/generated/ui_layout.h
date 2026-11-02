@@ -5,7 +5,7 @@
 //
 // source : layout/ui_layout.yaml
 // tool   : tools/layout_to_h.py
-// built  : 2026-11-01 23:46:34
+// built  : 2026-11-01 23:50:51
 // ============================================================
 
 #include <cstdint>
@@ -60,8 +60,14 @@ static constexpr Zone ZONES[] = {
   {"light_50", {1385, 681, 1509, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "50"},
   {"light_75", {1524, 681, 1648, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "75"},
   {"light_100", {1664, 681, 1806, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "100"},
+  {"reachy_retail_intro", {1372, 950, 1507, 1077}, nullptr, ZoneOp::SCRIPT, "action", "retail_intro"},
+  {"reachy_space_intro", {1523, 950, 1660, 1077}, nullptr, ZoneOp::SCRIPT, "action", "space_intro"},
+  {"reachy_rescue_intro", {1674, 950, 1810, 1077}, nullptr, ZoneOp::SCRIPT, "action", "rescue_intro"},
+  {"reachy_stop", {1372, 1092, 1507, 1227}, nullptr, ZoneOp::SCRIPT, "action", "stop"},
+  {"reachy_wake", {1523, 1092, 1660, 1227}, nullptr, ZoneOp::SCRIPT, "action", "wake"},
+  {"reachy_language", {1674, 1092, 1810, 1227}, nullptr, ZoneOp::SCRIPT, "action", "language"},
 };
-static constexpr size_t ZONE_COUNT = 6;
+static constexpr size_t ZONE_COUNT = 12;
 
 // ---- card: network -------------------------------------
 static constexpr uint8_t NETWORK_STATUS_SOURCE = SOURCE_TEXT;

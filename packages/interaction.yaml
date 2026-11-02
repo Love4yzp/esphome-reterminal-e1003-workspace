@@ -13,6 +13,15 @@ text:
     initial_value: ""
 
   - platform: template
+    id: cfg_reachy_script_hook
+    name: "${friendly_name} Reachy script hook"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: ""
+
+  - platform: template
     id: cfg_target_main_light
     name: "${friendly_name} Main light target"
     mode: text
@@ -109,70 +118,88 @@ script:
       - if:
           condition:
             lambda: |-
-              return !id(cfg_script_hook).state.empty();
+              return op == 2 && !id(cfg_reachy_script_hook).state.empty();
           then:
             - homeassistant.action:
                 action: !lambda |-
-                  return id(cfg_script_hook).state;
+                  return id(cfg_reachy_script_hook).state;
                 data_template:
                   zone: !lambda |-
                     return zone_id;
-                  control: !lambda |-
-                    return control;
-                  data_name: !lambda |-
-                    return data_name;
-                  data_value: !lambda |-
+                  action: !lambda |-
                     return data_value;
 
-          else:
+      - if:
+          condition:
+            lambda: |-
+              return op != 2;
+          then:
             - if:
                 condition:
                   lambda: |-
-                    return op == 0 && !target.empty();
+                    return !id(cfg_script_hook).state.empty();
                 then:
                   - homeassistant.action:
-                      action: homeassistant.toggle
+                      action: !lambda |-
+                        return id(cfg_script_hook).state;
                       data_template:
-                        entity_id: !lambda |-
-                          return target;
-
-            - if:
-                condition:
-                  lambda: |-
-                    return op == 1 && data_name == "state"
-                        && data_value == "off" && !target.empty();
-                then:
-                  - homeassistant.action:
-                      action: light.turn_off
-                      data_template:
-                        entity_id: !lambda |-
-                          return target;
-
-            - if:
-                condition:
-                  lambda: |-
-                    return op == 1 && data_name == "state"
-                        && data_value == "on" && !target.empty();
-                then:
-                  - homeassistant.action:
-                      action: light.turn_on
-                      data_template:
-                        entity_id: !lambda |-
-                          return target;
-
-            - if:
-                condition:
-                  lambda: |-
-                    return op == 1 && data_name == "brightness_pct"
-                        && !target.empty();
-                then:
-                  - homeassistant.action:
-                      action: light.turn_on
-                      data_template:
-                        entity_id: !lambda |-
-                          return target;
-                        brightness_pct: !lambda |-
+                        zone: !lambda |-
+                          return zone_id;
+                        control: !lambda |-
+                          return control;
+                        data_name: !lambda |-
+                          return data_name;
+                        data_value: !lambda |-
                           return data_value;
+                else:
+                  - if:
+                      condition:
+                        lambda: |-
+                          return op == 0 && !target.empty();
+                      then:
+                        - homeassistant.action:
+                            action: homeassistant.toggle
+                            data_template:
+                              entity_id: !lambda |-
+                                return target;
+
+                  - if:
+                      condition:
+                        lambda: |-
+                          return op == 1 && data_name == "state"
+                              && data_value == "off" && !target.empty();
+                      then:
+                        - homeassistant.action:
+                            action: light.turn_off
+                            data_template:
+                              entity_id: !lambda |-
+                                return target;
+
+                  - if:
+                      condition:
+                        lambda: |-
+                          return op == 1 && data_name == "state"
+                              && data_value == "on" && !target.empty();
+                      then:
+                        - homeassistant.action:
+                            action: light.turn_on
+                            data_template:
+                              entity_id: !lambda |-
+                                return target;
+
+                  - if:
+                      condition:
+                        lambda: |-
+                          return op == 1 && data_name == "brightness_pct"
+                              && !target.empty();
+                      then:
+                        - homeassistant.action:
+                            action: light.turn_on
+                            data_template:
+                              entity_id: !lambda |-
+                                return target;
+                              brightness_pct: !lambda |-
+                                return data_value;
 
 api:
   actions:

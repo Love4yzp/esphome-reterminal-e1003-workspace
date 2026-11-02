@@ -14,6 +14,10 @@ esp32:
   board: ${board}
   framework:
     type: arduino
+    advanced:
+      # Hardware boot logs identify the E1003 module's SPI flash as Winbond.
+      # Keeping only that vendor driver saves ESP32-S3 IRAM.
+      flash_chip: winbond
 
 psram:
   mode: octal

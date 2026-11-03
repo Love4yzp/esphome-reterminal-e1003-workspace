@@ -79,6 +79,10 @@ top-level `controls:`, declare the needed runtime text entities in
 `packages/interaction.yaml`, and add its direct-mode behavior there. Keep the
 layout free of ESPHome entity ids.
 
+Use `op: system` for a local device action that does not target Home Assistant.
+System zones do not take a semantic control; dispatch their `data.action` value
+in `packages/interaction.yaml`.
+
 ## Adding a dynamic card
 
 1. Add the card and its fields to `cards:`.

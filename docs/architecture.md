@@ -7,7 +7,7 @@ A **dashboard terminal**, not a smart-home hub. The firmware knows how to:
 1. paint a static design bitmap,
 2. paint a handful of dynamic cards on top of it,
 3. turn touches into Home Assistant calls,
-4. handle the three system-level physical buttons.
+4. handle the screen-level physical button and local network action.
 
 Public firmware deliberately knows neither the user's Wi-Fi credentials nor
 *which* light those calls target. The captive portal stores Wi-Fi credentials
@@ -45,7 +45,8 @@ runtime. A downstream custom build may add the fixed state adapter.
 | Shared identity and wiring | `packages/defaults.yaml` substitutions | every package |
 | Firmware network/security/default target | `e1003-dashboard.yaml` | ESPHome merge |
 | Runtime target and card text/state | Home Assistant `text` entities | `packages/interaction.yaml`, `packages/ui.yaml` |
-| Physical-button wiring and behavior | substitutions + interaction scripts | `packages/defaults.yaml`, `packages/interaction.yaml`, `src/e1003_system.h` |
+| Physical-button wiring and behavior | substitutions + interaction scripts | `packages/defaults.yaml`, `packages/interaction.yaml` |
+| Selective Wi-Fi reset | local network touch action + NVS helper | `packages/interaction.yaml`, `src/e1003_system.h` |
 
 If a number appears in two places, one of them is a bug. `tools/layout_to_h.py
 --check` enforces this for the layout file: it verifies that every font, sensor
@@ -123,7 +124,7 @@ layout/ui_layout.yaml ──layout_to_h.py──┬─> layout/generated/ui_layo
 assets/original.png ────png_to_h.py─────> assets/dashboard_static_v4.h      (PackBits RLE bitmap)
 
                         src/e1003_render.h                                  (bitmap helpers)
-                        src/e1003_system.h                                  (system-button helpers)
+                        src/e1003_system.h                                  (selective Wi-Fi reset)
 
 e1003-dashboard.yaml (+ packages/) ─────> source, release and browser-install firmware
 ```

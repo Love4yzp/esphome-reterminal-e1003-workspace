@@ -25,7 +25,8 @@ panel is a service call — no rebuild, no OTA.
 - Data-driven touch zones declared in YAML rather than written as code branches.
 - Build-time validation for geometry boundaries, fonts, and entity IDs.
 - Onboard SHT4x temperature/humidity sensor and PCF8563 RTC with Home Assistant time sync.
-- System-level physical buttons for full repaint, safe restart, and Wi-Fi reconfiguration.
+- A screen-level physical button for full repaint and safe restart.
+- Touch-driven Wi-Fi reconfiguration with an explicit two-step confirmation.
 - Runtime retargeting of controls and card text via Home Assistant `text` entities without reflashing.
 - `uv`-managed, lockfile-pinned toolchain; one cross-platform build driver
 - Fonts vendored in `assets/fonts/` (SIL OFL 1.1): no host font required, and
@@ -54,7 +55,7 @@ panel is a service call — no rebuild, no OTA.
 │   └── fonts/                  # vendored Liberation Sans fonts
 ├── src/
 │   ├── e1003_render.h          # bitmap decoder and render helpers
-│   └── e1003_system.h          # system-button helpers and selective Wi-Fi reset
+│   └── e1003_system.h          # selective Wi-Fi reset helper
 ├── tools/
 │   ├── layout_to_h.py          # validate and generate layout files
 │   └── png_to_h.py             # convert the design PNG to a C++ header
@@ -165,7 +166,6 @@ Pin assignments are substitutions in `packages/defaults.yaml`.
 |---|---|---|
 | Green button | Press | Fully repaint the Dashboard |
 | Green button | Hold for 3 seconds | Safely restart the device |
-| Both white buttons | Hold for 5 seconds | Reconfigure Wi-Fi |
 
 ## License
 

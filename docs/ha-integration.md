@@ -61,13 +61,14 @@ Reachy touches always beep. They do not redraw the e-paper display.
 
 ## Network card and Last Update
 
-The right-side status card is event driven:
+The right-side network card is event driven. Connection data is visually
+primary; state labels are intentionally smaller:
 
-| State | Network role/name | Detail |
-|---|---|---|
-| `READY` | Home Assistant connected/waiting + station SSID | current device IP |
-| `CONNECTING` | saved Wi-Fi search | setup AP will start |
-| `SETUP WI-FI` | active AP SSID | open `192.168.4.1` |
+| State | Top area | Network role/name | Detail |
+|---|---|---|---|
+| station connected | `CHANGE WI-FI` button | HA state + station SSID | current device IP |
+| searching | `CHANGE WI-FI` button | `CONNECTING` + saved-network search | setup AP will start |
+| setup AP active | small `SETUP WI-FI` label | setup access point + AP SSID | open `192.168.4.1` |
 
 When the setup AP is active it takes display priority, so the shown SSID is
 the network the user must join. `Last Update` in the footer is repainted only
@@ -86,13 +87,23 @@ network-specific static IP in public firmware.
 
 ## Changing Wi-Fi
 
-Hold both white buttons for five seconds. Three short beeps confirm the action;
-the firmware removes only the saved Wi-Fi credentials and restarts. Join the
-MAC-suffixed setup AP, open `192.168.4.1`, and save the replacement network.
+Tap `CHANGE WI-FI` in the network card. The button changes to
+`CONFIRM CHANGE` for eight seconds. Tap it again to confirm; three short beeps
+play, then the firmware removes only the saved Wi-Fi credentials and restarts.
+Join the MAC-suffixed setup AP, open `192.168.4.1`, and save the replacement
+network.
+
+The panel deliberately does not implement its own Wi-Fi scanner or on-screen
+password keyboard. ESPHome's captive portal already owns network discovery,
+credential entry, and error handling; duplicating that flow on a slow-refresh
+e-paper screen would add substantial code and refresh cost for little benefit.
+The action is named “change Wi-Fi,” not “disconnect,” because disconnecting
+without removing the saved credentials would simply reconnect to the same
+network.
 
 This is not a factory reset. The Home Assistant API key, runtime target, display
-state, and action hooks remain stored. If the physical buttons are unavailable,
-USB Improv Serial remains an alternative setup path.
+state, and action hooks remain stored. USB Improv Serial remains an alternative
+setup path.
 
 ## Troubleshooting
 
@@ -102,6 +113,6 @@ USB Improv Serial remains an alternative setup path.
 | touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
 | Home Assistant does not discover the panel | read the IP from the network card and add the ESPHome integration manually |
-| a different Wi-Fi is required | hold both white buttons for five seconds, then use the setup AP |
+| a different Wi-Fi is required | tap `CHANGE WI-FI`, confirm, then use the setup AP |
 | setup hotspot is unavailable | the 24-hour provisioning window may have closed; reboot the panel |
 | touch area is offset | verify the zone on hardware; do not remove the documented mirror conversion |

@@ -20,21 +20,25 @@ The shared modules are:
 | `packages/core.yaml` | identity and ESP32 platform |
 | `packages/hardware.yaml` | buses, buzzer, sensors and RTC |
 | `packages/ui.yaml` | boot paint, dirty flags, refresh and rendering |
-| `packages/interaction.yaml` | runtime text entities, touch zones and HA calls |
+| `packages/interaction.yaml` | runtime entities, touch zones and command publishing |
 
 `packages/ha-direct-state.yaml` is an optional adapter for downstream custom
-builds with a compile-time light target. The public firmware omits it and uses the
-same runtime state entities as the generic UI.
+builds that want to import one compile-time light's state directly. The public
+firmware omits it and uses the same runtime state entities as the generic UI.
 
 ## Compile-time substitutions
 
 Shared defaults, pins, and fonts live in `packages/defaults.yaml`. The public
-firmware leaves the control target empty.
-A custom downstream build can add a compile-time target:
+firmware contains no Home Assistant entity id. A custom downstream build can
+include the optional fixed-state adapter and define its required substitution:
 
 ```yaml
 substitutions:
   default_light_target: light.deskside_lamp
+
+packages:
+  dashboard: !include e1003-base.yaml
+  fixed_light_state: !include packages/ha-direct-state.yaml
 ```
 
 Command-line overrides still work:
@@ -42,8 +46,7 @@ Command-line overrides still work:
 ```bash
 uv run python scripts/build.py compile \
   -s device_name panel-kitchen \
-  -s friendly_name "Kitchen Panel" \
-  -s default_light_target light.kitchen_ceiling
+  -s friendly_name "Kitchen Panel"
 ```
 
 Geometry and refresh policy come from `layout/ui_layout.yaml`; edit that source
@@ -55,47 +58,51 @@ instructions always match the network that the device broadcasts.
 
 ## Runtime entities
 
-`packages/interaction.yaml` exposes these Home Assistant `text` entities:
+`packages/interaction.yaml` exposes one read-only command sensor and four
+runtime `text` entities:
 
 Text settings are normally flushed to flash every 60 seconds. Allow at least
 65 seconds after a change before removing power or performing a hard reset.
 A live API readback confirms the current value, not completion of that flash
 write.
 
-| Entity suffix | Empty/default behavior | Purpose |
+| Entity suffix | Type/default | Purpose |
 |---|---|---|
-| `zone_script_hook` | empty: use direct light mode | optional HA action called for light zones |
-| `reachy_script_hook` | empty: beep only | HA action called by the six Reachy scene zones |
-| `main_light_target` | empty: touches send no direct light action | entity controlled by the light zones |
-| `main_light_state` | empty: no selected ON/OFF segment | display state pushed by HA |
-| `main_light_value` | empty: `0` | display brightness, `0`–`100` |
+| `main_light_command` | read-only sensor | unique command emitted by every light touch |
+| `main_light_state` | text, empty | display state pushed by HA |
+| `main_light_value` | text, empty | display brightness, `0`–`100` |
+| `zone_script_hook` | text, empty | optional advanced HA action replacing command publishing |
+| `reachy_script_hook` | text, empty | optional HA action called by the six Reachy scene zones |
 
-The target and its displayed state are deliberately separate. ESPHome can call
-an entity id stored in text at runtime, but a `platform: homeassistant` state
-subscription requires a compile-time literal entity id. Use the supplied
-blueprint to keep target, state and value synchronized in the public firmware.
+The command and displayed state are deliberately separate. The firmware reports
+user intent through `main_light_command`; the supplied blueprint selects the
+real light, performs the service call inside Home Assistant, and mirrors the
+real state/value back. The firmware therefore contains no light entity id and
+does not need device action permission.
 
-The display does not require a target. For a display-only preview, leave
-`main_light_target` empty and edit `main_light_state` and
-`main_light_value` from the Home Assistant device page. ON/OFF, presets and the
-slider also update the card locally and trigger one partial refresh. They still
-send no Home Assistant light action until a target is configured.
+For a display-only preview, edit `main_light_state` and `main_light_value` from
+the Home Assistant device page. ON/OFF, presets and the slider also update the
+card locally and trigger one partial refresh. They change a real light only
+when a blueprint automation consumes `main_light_command`.
 
-## Direct mode
+## Command mode
 
 With `zone_script_hook` empty:
 
-- the ON and OFF zones call `light.turn_on` and `light.turn_off`;
-- 25/50/75/100 percent zones call `light.turn_on` on the same target with
-  `brightness_pct`;
-- the brightness slider maps a tap or drag to `0`–`100`, then sends one action
-  when the finger is released. Zero turns the light off.
+- ON and OFF publish `state|on` or `state|off`;
+- 25/50/75/100 percent zones publish `brightness_pct|<value>`;
+- the brightness slider maps a tap or drag to `0`–`100`, then publishes one
+  command when the finger is released.
 
-Each control first updates the card optimistically. The imported blueprint then
-mirrors the real light state back to the same state/value entities.
+The actual sensor state includes a sequence prefix, for example
+`17|brightness_pct|50`. This guarantees that tapping 50% twice still produces
+two Home Assistant state changes. The sequence number is an implementation
+detail; automations should use the supplied blueprint instead of parsing it
+again.
 
-Direct mode is intentionally light-specific. For a switch, fan, scene,
-conditions or per-zone custom logic, use hook mode.
+Each control first updates the card optimistically. The imported blueprint
+performs the light action, then mirrors the real state back to the same
+state/value entities.
 
 ## Hook mode
 
@@ -121,8 +128,11 @@ Every light touch then calls that action with:
 The slider uses `zone: light_slider` and sends its exact release value in
 `data_value`.
 
-Hook mode replaces direct mode, so one touch cannot produce both actions. Clear
-the hook to return to direct mode.
+Hook mode replaces command mode, so one touch cannot produce both actions. Clear
+the hook to return to command mode. Because hook mode asks the ESPHome device to
+call an HA action directly, it is an advanced path and requires enabling
+**Allow the device to perform Home Assistant actions**. The recommended
+blueprint path does not.
 
 Reachy uses the separate `reachy_script_hook`. Each of its six existing scene
 tiles beeps and calls that action with `zone` plus one of these `action` values:
@@ -135,12 +145,13 @@ The display is not refreshed for a Reachy touch.
 then select:
 
 1. the light to control;
-2. the panel's target text entity;
+2. the panel's command sensor;
 3. the panel's state text entity;
 4. the panel's value text entity.
 
-The automation writes the target and mirrors every light state/brightness
-change to the e-paper card. Re-targeting therefore needs no firmware rebuild.
+The automation consumes panel commands and mirrors every real light
+state/brightness change to the e-paper card. Re-targeting therefore needs no
+firmware rebuild or ESPHome permission change.
 
 For arbitrary content, Home Assistant can push values with `text.set_value`.
 The optional `packages/ha-pull.yaml` adapter is available when the panel must

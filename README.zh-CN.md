@@ -10,9 +10,9 @@ ESP32-S3** 的 ESPHome 固件模板:设计稿位图作为静态 UI,少量动态�
 [`layout/ui_layout.yaml`](layout/ui_layout.yaml),由 `tools/layout_to_h.py` 编译成
 C++ 头文件。ESPHome 的 packages 里不允许出现任何一个像素数值。
 
-**行为是配置,不是固件。** 按钮控制哪个实体、卡片显示什么内容,
-全部是普通的 Home Assistant `text` 实体。换个灯 = 一次服务调用,**不用重编译、不用
-OTA**。
+**行为是配置,不是固件。** 随项目提供的 Home Assistant 蓝图把面板命令实体映射到
+任意灯，并把真实状态回写到卡片。换个灯只需编辑自动化，**不用重编译、不用 OTA，
+也不用给设备开放 HA Action 权限**。
 
 [English README](README.md)
 
@@ -26,7 +26,7 @@ OTA**。
 - 读取板载 SHT4x 温湿度传感器与 PCF8563 RTC，开机由 Home Assistant 同步校时。
 - 绿色实体键只负责完整刷新与安全重启等屏幕级操作。
 - 通过屏幕网络区域发起 Wi-Fi 重配，并使用二次点击确认避免误触。
-- 按钮控制目标、服务动作与卡片文本通过 Home Assistant `text` 实体在运行时修改，免重新编译。
+- 控制目标通过 Home Assistant 蓝图选择，卡片文本通过运行时实体更新，免重新编译。
 - 工具链由 `uv` 管理并锁版本,Linux/macOS/Windows 共用同一个构建入口
 - 字体随仓库分发(`assets/fonts/`,SIL OFL 1.1):主机无需装字体,三平台字形一致
 
@@ -42,8 +42,8 @@ e1003-base.yaml                 # 共享 packages 组装
 │   ├── core.yaml               # 身份与 ESP32 平台
 │   ├── hardware.yaml           # SPI/I2C、蜂鸣器、SHT4x、PCF8563
 │   ├── ui.yaml                 # 启动、脏标记、刷新和渲染
-│   ├── interaction.yaml        # 运行时配置、GT911 和 HA 动作
-│   ├── ha-direct-state.yaml    # 自定义构建可选的固定目标 adapter
+│   ├── interaction.yaml        # 运行时配置、GT911 和命令发布
+│   ├── ha-direct-state.yaml    # 自定义构建可选的固定状态 adapter
 │   └── ha-pull.yaml            # 可选:设备反向拉取 HA 的 JSON
 ├── src/
 │   ├── e1003_render.h          # C++ 辅助函数（RLE 位图解码）
@@ -84,18 +84,16 @@ uv run python scripts/build.py run
 
 烧录完成后，连接名称以 `reterminal-e1003-` 开头的开放热点，访问
 `192.168.4.1` 填写目标 Wi-Fi。随后在 Home Assistant 中添加设备
-（**设置 → 设备与服务 → ESPHome**），
-并将控制项指向目标实体：
+（**设置 → 设备与服务 → ESPHome**），导入项目自带蓝图，然后选择：
 
-```yaml
-action: text.set_value
-target:
-  entity_id: text.e1003_smart_workspace_main_light_target
-data:
-  value: light.desk_lamp
-```
+1. 要控制的灯；
+2. 面板的 `Main light command` 传感器；
+3. 面板的 `Main light state` 文本实体；
+4. 面板的 `Main light value` 文本实体。
 
-配置保存后即刻生效，无需重新编译固件。所有运行时可配置项参见 [docs/configuration.md](docs/configuration.md)。
+灯光服务由蓝图在 Home Assistant 内部执行，复刻者不需要开启“允许设备执行 Home
+Assistant 操作”。配置保存后即刻生效，无需重新编译固件。所有运行时接口参见
+[docs/configuration.md](docs/configuration.md)。
 
 ## 现成固件
 
@@ -105,22 +103,21 @@ data:
 
 然后在 Home Assistant 里添加设备，并
 [从 HA 页面一键导入灯光同步蓝图](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml)，
-再到 ESPHome 集成中点击该 E1003 旁的“配置”，启用“允许设备执行 Home Assistant
-操作”。未启用时，HA 会拒绝面板发出的灯光控制请求。
-选择面板的 target/state/value 实体和要控制的灯。没有真实灯时，直接编辑面板的
-state/value 文本实体即可预览卡片，不需要安装 package 或创建虚拟灯。其他可运行时修改的内容见
+选择要控制的灯和面板的 command/state/value 实体即可。普通用户路径不需要额外
+ESPHome Action 权限。没有真实灯时，直接编辑面板的 state/value 文本实体即可预览
+卡片，不需要安装 package 或创建虚拟灯。其他可运行时修改的内容见
 **[docs/configuration.md](docs/configuration.md)**。
 
 ## 哪些能改、哪些要重编译
 
 | 想改的内容 | 免重编译 | 方式 |
 |---|:---:|---|
-| 按钮控制哪个实体 | ✅ | `text..._main_light_target` |
+| 面板控制哪个灯 | ✅ | 编辑导入的蓝图自动化 |
 | 卡片显示的状态/数值 | ✅ | `text..._main_light_state` / `_value` |
-| 灯光按钮的自定义路由 | ✅ | `zone_script_hook` → HA 脚本 |
-| Reachy 场景动作 | ✅ | `reachy_script_hook` → HA 脚本 |
+| 高级灯光自定义路由 | ✅ | `zone_script_hook` → HA 脚本 |
+| 高级 Reachy 场景动作 | ✅ | `reachy_script_hook` → HA 脚本 |
 | 按钮/卡片数量、位置、字体 | ❌ | `layout/ui_layout.yaml` + 设计稿 |
-| 引脚、板型、面板型号、编译期默认目标 | ❌ | `packages/defaults.yaml` + `-s key value` |
+| 引脚、板型、面板型号 | ❌ | `packages/defaults.yaml` + `-s key value` |
 
 ## 文档指引
 

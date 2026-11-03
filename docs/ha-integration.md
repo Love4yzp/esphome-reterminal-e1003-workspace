@@ -7,8 +7,11 @@
 3. Open `192.168.4.1` and save the destination Wi-Fi credentials.
 4. Add the discovered ESPHome device in Home Assistant. The first connection
    provisions a unique API encryption key.
-5. Open the ESPHome integration, select **Configure** beside the E1003, enable
-   **Allow the device to perform Home Assistant actions**, and submit.
+5. Import the supplied light-sync blueprint and create an automation.
+
+No **Allow the device to perform Home Assistant actions** setting is required
+for the normal light path. The device publishes a sensor state, and the
+blueprint performs light services inside Home Assistant.
 
 ## Panel entities
 
@@ -18,9 +21,9 @@ Home Assistant creates names based on the device name. Look them up in
 | Entity suffix | Direction | Purpose |
 |---|---|---|
 | `temperature`, `humidity` | panel → HA | onboard SHT4x |
-| `zone_script_hook` | HA → panel | empty for direct light mode; action for custom light routing |
+| `main_light_command` | panel → HA | unique ON/OFF/brightness command |
+| `zone_script_hook` | HA → panel | empty for command mode; advanced direct action hook |
 | `reachy_script_hook` | HA → panel | action for the six Reachy scene tiles |
-| `main_light_target` | HA → panel | runtime target entity id |
 | `main_light_state` | HA → panel | card state |
 | `main_light_value` | HA → panel | card brightness, `0`–`100` |
 | `repaint`, `beep` actions | HA → panel | diagnostic actions |
@@ -29,9 +32,10 @@ Home Assistant creates names based on the device name. Look them up in
 
 [Import the blueprint from the Home Assistant UI](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml),
 then create an automation. Select one HA light and the panel's
-target/state/value text entities. The blueprint:
+command/state/value entities. The blueprint:
 
-- writes the selected light's entity id into the runtime target;
+- listens for every panel light command;
+- calls `light.turn_on` or `light.turn_off` inside Home Assistant;
 - mirrors its state;
 - converts HA brightness `0`–`255` to panel brightness `0`–`100`;
 - refreshes the values when Home Assistant starts.
@@ -62,7 +66,7 @@ The script:
 2. installs the blueprint with the WebSocket `blueprint/save` command;
 3. creates or updates an automation through
    `POST /api/config/automation/config/<automation_id>`;
-4. discovers the panel's target/state/value text entities by suffix and
+4. discovers the panel's command/state/value entities by suffix and
    rejects ambiguous matches unless `--panel` is supplied.
 
 Re-running the command is safe. It updates only an automation with the same id,
@@ -73,23 +77,23 @@ replace the username/password pair.
 
 No light or blueprint is required to preview the card. Open the E1003 device in
 Home Assistant and edit its `Main light state` and `Main light value` text
-entities directly. Leave `Main light target` empty for display-only use:
-touches update the local card and beep, but no light action is sent. Any HA
-automation can write the same entities with `text.set_value`.
+entities directly. Touches update the local card and beep, but no real light
+changes unless an automation consumes `Main light command`. Any HA automation
+can write the state/value entities with `text.set_value`.
 
-## Direct and hook routing
+## Command and hook routing
 
-Direct mode is active when `zone_script_hook` is empty. ON and OFF call
-`light.turn_on` and `light.turn_off`; percentage zones use `light.turn_on`.
-The brightness slider sends one exact `0`–`100` value on release, with zero
-treated as off. Light controls update the card immediately; the blueprint
-subsequently writes back the real light state.
+Command mode is active when `zone_script_hook` is empty. ON/OFF, preset buttons,
+and the slider publish a unique `Main light command` sensor state. The
+brightness slider sends one exact `0`–`100` value on release, with zero treated
+as off by the blueprint. Light controls update the card immediately; the
+blueprint subsequently writes back the real light state.
 
 For custom behavior, set the hook to an HA action such as
 `script.e1003_zone`. The panel passes `{zone, control, data_name, data_value}`
-and skips all built-in routing. Hook scripts are an advanced extension; the
-demo package intentionally leaves them empty so the direct light path remains
-easy to understand.
+and skips command publishing. Hook scripts are an advanced extension that
+requires **Allow the device to perform Home Assistant actions**; the normal
+blueprint path intentionally leaves the hook empty and needs no such permission.
 
 Reachy routing is intentionally separate. Set `reachy_script_hook` to an HA
 action such as `script.e1003_reachy`. Each touch passes:
@@ -99,6 +103,20 @@ action such as `script.e1003_reachy`. Each touch passes:
   `language`.
 
 Reachy touches always beep. They do not redraw the e-paper display.
+The Reachy hook is also a direct device action and therefore requires the same
+advanced ESPHome permission when configured.
+
+## Upgrading an older panel automation
+
+Firmware versions before this command-channel design exposed
+`Main light target`. After updating:
+
+1. re-import or update the blueprint;
+2. edit the existing automation;
+3. replace the old target input with the new `Main light command` sensor.
+
+The target text entity disappears because the selected light now lives only in
+the Home Assistant automation.
 
 ## Network card and Last Update
 
@@ -148,16 +166,15 @@ The action is named “change Wi-Fi,” not “disconnect,” because disconnect
 without removing the saved credentials would simply reconnect to the same
 network.
 
-This is not a factory reset. The Home Assistant API key, runtime target, display
-state, and action hooks remain stored. USB Improv Serial remains an alternative
-setup path.
+This is not a factory reset. The Home Assistant API key, display state, and
+action hooks remain stored. USB Improv Serial remains an alternative setup path.
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---|---|
 | no ON/OFF segment is selected | `main_light_state` is empty or not `on`/`off`; create the blueprint automation or edit it manually |
-| touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
+| touch beeps but no light changes | the blueprint automation is missing/disabled, its command input is wrong, or an advanced hook failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
 | Home Assistant does not discover the panel | read the IP from the network card and add the ESPHome integration manually |
 | a different Wi-Fi is required | tap the SSID row twice, then use the setup AP |

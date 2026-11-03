@@ -23,8 +23,9 @@ and reused after reboot.
 Home Assistant provisions a unique API encryption key when the device is added
 for the first time. Import the supplied light-sync blueprint from the Home
 Assistant UI afterward to select the user's light and keep the card
-synchronized. A display-only preview can instead edit the panel's state/value
-text entities directly.
+synchronized. The blueprint performs actions inside Home Assistant, so no
+device action permission is needed. A display-only preview can instead edit the
+panel's state/value text entities directly.
 
 ESPHome's captive portal automatically includes a web updater. Its HTTP
 listener is available during setup. The release also carries
@@ -74,7 +75,7 @@ uv run python scripts/build.py logs
 uv run python scripts/build.py config
 
 uv run python scripts/build.py compile \
-  -s default_light_target light.other
+  -s device_name panel-kitchen
 ```
 
 Raw ESPHome commands also work.
@@ -125,8 +126,8 @@ separate ESP-IDF installation; unset it when using ESPHome's managed toolchain.
 
 | | size |
 |---|---|
-| RAM | 31.6 % (108063 bytes of 341760 bytes) |
-| Flash | 70.3 % (1290447 bytes of 1835008 bytes) |
+| RAM | 32.0 % (109307 bytes of 341760 bytes) |
+| Flash | 70.8 % (1300015 bytes of 1835008 bytes) |
 
 The static bitmap dominates. Dropping an unused font or shrinking the RLE
 (PackBits compresses flat design areas very well) is the cheapest way to claw
@@ -134,8 +135,8 @@ space back.
 
 ## Version pins
 
-ESPHome **2026.10.1** is required: this project uses packages, `text`/`event`
-platforms, `homeassistant.action` with `capture_response`, and the
+ESPHome **2026.10.1** is required: this project uses packages, template
+`text`/`text_sensor` entities, optional `homeassistant.action` hooks, and the
 `substitutions`-aware font schema. Bump it in `pyproject.toml`, run `uv lock`,
 then `uv run esphome compile e1003-dashboard.yaml` and re-check the warnings.
 

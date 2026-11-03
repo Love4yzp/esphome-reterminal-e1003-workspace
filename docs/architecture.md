@@ -6,21 +6,22 @@ A **dashboard terminal**, not a smart-home hub. The firmware knows how to:
 
 1. paint a static design bitmap,
 2. paint a handful of dynamic cards on top of it,
-3. turn touches into Home Assistant calls,
+3. turn touches into native command entity updates,
 4. handle the screen-level physical button and local network action.
 
 Public firmware deliberately knows neither the user's Wi-Fi credentials nor
-*which* light those calls target. The captive portal stores Wi-Fi credentials
-on the device; Home Assistant supplies the control target and display state at
-runtime. A downstream custom build may add the fixed state adapter.
+*which* light the panel controls. The captive portal stores Wi-Fi credentials
+on the device; a Home Assistant blueprint owns the light mapping and supplies
+display state at runtime. A downstream custom build may add the fixed state
+adapter.
 
 ```
                          Home Assistant
-       target/state/value text       optional script hook
-                 │                           ▲
-                 ▼                           │
+       Blueprint: command → light → state/value
+                 ▲                           │
+                 │                           ▼
    ┌─────────────────────────────────────────────────────────┐
-   │ INTERACTION  runtime text + touch/buttons + HA actions   │
+   │ INTERACTION  runtime entities + touch + command publish  │
    │              packages/interaction.yaml                  │
    ├─────────────────────────────────────────────────────────┤
    │ UI           boot + dirty flags + refresh + rendering   │
@@ -43,8 +44,8 @@ runtime. A downstream custom build may add the fixed state adapter.
 |---------|--------|-------------|
 | Screen geometry, fonts, touch hit boxes | `layout/ui_layout.yaml` | `tools/layout_to_h.py` → `layout/generated/{ui_layout.h,fonts.yaml,policy.yaml}` |
 | Shared identity and wiring | `packages/defaults.yaml` substitutions | every package |
-| Firmware network/security/default target | `e1003-dashboard.yaml` | ESPHome merge |
-| Runtime target and card text/state | Home Assistant `text` entities | `packages/interaction.yaml`, `packages/ui.yaml` |
+| Firmware network and security | `e1003-dashboard.yaml` | ESPHome merge |
+| Runtime commands and card text/state | ESPHome sensor + Home Assistant `text` entities | blueprint, `packages/interaction.yaml`, `packages/ui.yaml` |
 | Physical-button wiring and behavior | substitutions + interaction scripts | `packages/defaults.yaml`, `packages/interaction.yaml` |
 | Selective Wi-Fi reset | local network touch action + NVS helper | `packages/interaction.yaml`, `src/e1003_system.h` |
 

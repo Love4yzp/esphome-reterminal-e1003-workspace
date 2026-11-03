@@ -4,9 +4,9 @@ The firmware does not require any file from this directory. Home Assistant
 users can complete the normal setup from the web interface without opening the
 Container filesystem or editing `configuration.yaml`.
 
-After adding the ESPHome device, open its **Configure** dialog in the ESPHome
-integration and enable **Allow the device to perform Home Assistant actions**.
-Home Assistant blocks panel light commands until this permission is enabled.
+The normal light path does not require **Allow the device to perform Home
+Assistant actions**. The panel publishes a command sensor; the imported
+blueprint performs the service call inside Home Assistant.
 
 ## Import the blueprint from the Home Assistant UI
 
@@ -22,7 +22,7 @@ https://github.com/Love4yzp/esphome-reterminal-e1003-workspace/blob/main/ha/blue
 Create an automation from the imported blueprint and select:
 
 1. the Home Assistant light to control;
-2. the panel text entity ending in `Main light target`;
+2. the panel sensor ending in `Main light command`;
 3. the panel text entity ending in `Main light state`;
 4. the panel text entity ending in `Main light value`.
 
@@ -56,7 +56,7 @@ The deploy command:
    `POST /api/config/automation/config/<id>`;
 4. optionally triggers the automation once so the card is populated immediately.
 
-The panel entities are discovered by their `_main_light_target`,
+The panel entities are discovered by their `_main_light_command`,
 `_main_light_state` and `_main_light_value` suffixes. If more than one panel is
 connected, pass part of its name with `--panel`.
 
@@ -76,12 +76,12 @@ A real light and the blueprint are optional. The panel exposes editable Home
 Assistant `text` entities, so its card can also be driven manually or by any
 automation:
 
-| Entity suffix | Accepted value | Effect |
+| Entity suffix | Type | Effect |
 |---|---|---|
-| `main_light_target` | an entity id such as `light.desk_lamp`, or empty | destination for panel touches |
-| `main_light_state` | `on`, `off`, or empty | selected ON/OFF segment |
-| `main_light_value` | `0`–`100`, or empty | displayed brightness |
+| `main_light_command` | read-only sensor | unique command published by every panel touch |
+| `main_light_state` | editable text | `on`, `off`, or empty; selected ON/OFF segment |
+| `main_light_value` | editable text | `0`–`100`, or empty; displayed brightness |
 
-For a display-only preview, leave the target empty and edit state/value from
-the device page. Panel controls update the card locally and still beep, but no
-Home Assistant light action is sent until a target or custom hook is configured.
+For a display-only preview, edit state/value from the device page. Panel
+controls update the card locally and still beep. A Home Assistant light changes
+only when a blueprint automation consumes the command sensor.

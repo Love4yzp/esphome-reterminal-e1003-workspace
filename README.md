@@ -12,9 +12,10 @@ boxes live in [`layout/ui_layout.yaml`](layout/ui_layout.yaml) and are compiled
 into a C++ header by `tools/layout_to_h.py`. No pixel number is allowed to appear
 in the ESPHome packages.
 
-**Behaviour is configuration, not firmware.** Which light a button controls and
-what the cards display are Home Assistant `text` entities. Re-targeting the
-panel is a service call — no rebuild, no OTA.
+**Behaviour is configuration, not firmware.** The supplied Home Assistant
+blueprint maps the panel command entity to any light and mirrors state back to
+the card. Re-targeting the panel means editing one automation — no rebuild, no
+OTA, and no device action permission.
 
 [简体中文说明](README.zh-CN.md)
 
@@ -28,7 +29,8 @@ panel is a service call — no rebuild, no OTA.
 - Onboard SHT4x temperature/humidity sensor and PCF8563 RTC with Home Assistant time sync.
 - A screen-level physical button for full repaint and safe restart.
 - Touch-driven Wi-Fi reconfiguration with an explicit two-step confirmation.
-- Runtime retargeting of controls and card text via Home Assistant `text` entities without reflashing.
+- Runtime retargeting through a Home Assistant blueprint and runtime card text
+  entities without reflashing.
 - `uv`-managed, lockfile-pinned toolchain; one cross-platform build driver
 - Fonts vendored in `assets/fonts/` (SIL OFL 1.1): no host font required, and
   identical glyph metrics on Linux, Windows and macOS
@@ -44,8 +46,8 @@ panel is a service call — no rebuild, no OTA.
 │   ├── core.yaml               # identity and ESP32-S3 platform
 │   ├── hardware.yaml           # SPI/I2C, buzzer, SHT4x, PCF8563
 │   ├── ui.yaml                 # boot, dirty flags, refresh and rendering
-│   ├── interaction.yaml        # runtime config, GT911 and HA actions
-│   ├── ha-direct-state.yaml    # optional fixed-target adapter for custom builds
+│   ├── interaction.yaml        # runtime config, GT911 and command publishing
+│   ├── ha-direct-state.yaml    # optional fixed-state adapter for custom builds
 │   └── ha-pull.yaml            # optional: device polls HA for JSON
 ├── layout/
 │   ├── ui_layout.yaml          # zones, cards, fonts, palette, and refresh policy
@@ -105,19 +107,19 @@ for detailed build and flashing instructions.
 
 After flashing, join the open Wi-Fi network whose name starts with
 `reterminal-e1003-`, then open `192.168.4.1` to enter the destination Wi-Fi
-credentials. Then add the device in Home Assistant
-(**Settings → Devices & Services → ESPHome**) and point a control at your
-target entity:
+credentials. Add the device in Home Assistant
+(**Settings → Devices & Services → ESPHome**), import the supplied blueprint,
+and select:
 
-```yaml
-action: text.set_value
-target:
-  entity_id: text.e1003_smart_workspace_main_light_target
-data:
-  value: light.desk_lamp
-```
+1. the light;
+2. the panel's `Main light command` sensor;
+3. the panel's `Main light state` text entity;
+4. the panel's `Main light value` text entity.
 
-Changes take effect immediately without recompilation. See [docs/configuration.md](docs/configuration.md) for available runtime settings.
+The blueprint performs light actions inside Home Assistant, so a replicated
+device does not need **Allow the device to perform Home Assistant actions**.
+See [docs/configuration.md](docs/configuration.md) for the complete runtime
+interface.
 
 ## Ready-made firmware image
 
@@ -127,22 +129,21 @@ Pages — plug in USB-C and flash from the page. See
 
 Then add the device in Home Assistant and
 [import the light-sync blueprint from the Home Assistant UI](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml).
-In the ESPHome integration, select **Configure** beside the E1003 and enable
-**Allow the device to perform Home Assistant actions**.
-The blueprint asks for the panel's target/state/value text entities and the
-light to control. Without a light, edit the panel's state/value text entities
-directly to preview the card; no package or virtual entity is required.
+The blueprint asks for the light plus the panel's command/state/value entities.
+That is the complete normal-user setup; no ESPHome action permission is
+required. Without a light, edit the panel's state/value text entities directly
+to preview the card; no package or virtual entity is required.
 
 ## What can be changed without reflashing
 
 | | without reflashing | how |
 |---|---|---|
-| which entity a button controls | ✅ | `text..._main_light_target` |
+| which light the panel controls | ✅ | edit the imported blueprint automation |
 | what a card displays | ✅ | `text..._main_light_state` / `_value` |
-| custom light-button routing | ✅ | `zone_script_hook` → an HA script |
-| Reachy scene actions | ✅ | `reachy_script_hook` → an HA script |
+| advanced custom light routing | ✅ | `zone_script_hook` → an HA script |
+| advanced Reachy scene actions | ✅ | `reachy_script_hook` → an HA script |
 | number/position of buttons, cards, fonts | ❌ | `layout/ui_layout.yaml` + design PNG |
-| pins, board, panel model, compile-time default target | ❌ | `packages/defaults.yaml` + `-s key value` |
+| pins, board, panel model | ❌ | `packages/defaults.yaml` + `-s key value` |
 
 ## Documentation
 

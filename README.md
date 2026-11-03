@@ -63,9 +63,10 @@ panel is a service call — no rebuild, no OTA.
 │   ├── build.py                # cross-platform build, flash, and log driver
 │   └── make_release.py         # assemble release and browser-install artifacts
 ├── ha/
+│   ├── README.md               # plain-language Home Assistant setup
 │   ├── blueprints/automation/
 │   │   └── e1003_light_sync.yaml
-│   └── e1003_dashboard.yaml    # sample HA package and pull snapshot
+│   └── e1003_demo.yaml         # optional virtual dimmable light
 ├── web/
 │   └── install.html            # browser installer template
 ├── docs/                       # architecture, configuration, layout, HA, and build guides

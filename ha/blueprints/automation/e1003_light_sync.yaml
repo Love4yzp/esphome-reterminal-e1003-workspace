@@ -1,27 +1,32 @@
 blueprint:
-  name: "E1003: configure and sync the main light"
+  name: "E1003: connect one light to the panel"
   description: >-
-    Sets the panel's runtime target and mirrors the selected Home Assistant
-    light state and brightness to the e-paper card.
+    Select a real or demo Home Assistant light. The automation tells the panel
+    which entity to control and mirrors its on/off state and brightness to the
+    e-paper card.
   domain: automation
   input:
     light_entity:
-      name: Light
+      name: Light to control
+      description: Select a physical light or light.e1003_demo_light.
       selector:
         entity:
           domain: light
     panel_target:
-      name: Panel main light target
+      name: Panel target
+      description: Select the panel text entity ending in Main light target.
       selector:
         entity:
           domain: text
     panel_state:
-      name: Panel main light state
+      name: Panel state
+      description: Select the panel text entity ending in Main light state.
       selector:
         entity:
           domain: text
     panel_value:
-      name: Panel main light value
+      name: Panel brightness
+      description: Select the panel text entity ending in Main light value.
       selector:
         entity:
           domain: text

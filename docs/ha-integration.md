@@ -40,6 +40,12 @@ entities. The blueprint:
 This is the normal setup. The firmware remains generic and no
 user Wi-Fi, API key or entity id is published in the release image.
 
+If no physical light is available, copy `ha/e1003_demo.yaml` into Home
+Assistant's `config/packages/` directory. It creates
+`light.e1003_demo_light`, which behaves like a dimmable light in the Home
+Assistant UI. Select it in the same blueprint to test panel state and controls.
+See `ha/README.md` for the short setup sequence.
+
 ## Direct and hook routing
 
 Direct mode is active when `zone_script_hook` is empty. ON and OFF call
@@ -47,8 +53,9 @@ Direct mode is active when `zone_script_hook` is empty. ON and OFF call
 
 For custom behavior, set the hook to an HA action such as
 `script.e1003_zone`. The panel passes `{zone, control, data_name, data_value}`
-and skips all built-in routing. `ha/e1003_dashboard.yaml` contains an editable
-example package.
+and skips all built-in routing. Hook scripts are an advanced extension; the
+demo package intentionally leaves them empty so the direct light path remains
+easy to understand.
 
 Reachy routing is intentionally separate. Set `reachy_script_hook` to an HA
 action such as `script.e1003_reachy`. Each touch passes:
@@ -61,14 +68,13 @@ Reachy touches always beep. They do not redraw the e-paper display.
 
 ## Network card and Last Update
 
-The right-side network card is event driven. Connection data is visually
-primary; state labels are intentionally smaller:
+The right-side network card is event driven and uses three centered rows:
 
-| State | Top area | Network role/name | Detail |
+| State | Top SSID row | Middle IP row | Bottom HA row |
 |---|---|---|---|
-| station connected | `CHANGE WI-FI` button | HA state + station SSID | current device IP |
-| searching | `CHANGE WI-FI` button | `CONNECTING` + saved-network search | setup AP will start |
-| setup AP active | small `SETUP WI-FI` label | setup access point + AP SSID | open `192.168.4.1` |
+| station connected | current Wi-Fi SSID | current station IP | `HA CONNECTED` or `HA WAITING` |
+| searching | `FINDING WI-FI` | `IP PENDING` | `HA OFFLINE` |
+| setup AP active | MAC-suffixed setup AP name | `IP 192.168.4.1` | `HA OFFLINE` |
 
 When the setup AP is active it takes display priority, so the shown SSID is
 the network the user must join. `Last Update` in the footer is repainted only
@@ -87,11 +93,11 @@ network-specific static IP in public firmware.
 
 ## Changing Wi-Fi
 
-Tap `CHANGE WI-FI` in the network card. The button changes to
-`CONFIRM CHANGE` for eight seconds. Tap it again to confirm; three short beeps
-play, then the firmware removes only the saved Wi-Fi credentials and restarts.
-Join the MAC-suffixed setup AP, open `192.168.4.1`, and save the replacement
-network.
+Tap the large SSID row at the top of the network card. It temporarily inverts
+and shows `CHANGE WI-FI?` plus `TAP AGAIN TO CONFIRM`. Tap the same row again
+within eight seconds; three short beeps play, then the firmware removes only
+the saved Wi-Fi credentials and restarts. Join the MAC-suffixed setup AP, open
+`192.168.4.1`, and save the replacement network.
 
 The panel deliberately does not implement its own Wi-Fi scanner or on-screen
 password keyboard. ESPHome's captive portal already owns network discovery,
@@ -113,6 +119,6 @@ setup path.
 | touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
 | Home Assistant does not discover the panel | read the IP from the network card and add the ESPHome integration manually |
-| a different Wi-Fi is required | tap `CHANGE WI-FI`, confirm, then use the setup AP |
+| a different Wi-Fi is required | tap the SSID row twice, then use the setup AP |
 | setup hotspot is unavailable | the 24-hour provisioning window may have closed; reboot the panel |
 | touch area is offset | verify the zone on hardware; do not remove the documented mirror conversion |

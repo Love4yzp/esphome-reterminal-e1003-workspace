@@ -21,8 +21,7 @@
 #                            logic in one HA script.
 #
 # Requirements for PULL: a Home Assistant version that supports ESPHome action
-# responses, plus a script on the HA side that returns a response (see
-# ha/e1003_dashboard.yaml, `script.e1003_snapshot`).
+# responses, plus a user-provided script on the HA side that returns a response.
 #
 # Both the action and the Jinja response template are runtime text entities, so
 # what gets pulled is decided from Home Assistant, not from the firmware.

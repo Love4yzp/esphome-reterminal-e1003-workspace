@@ -49,7 +49,11 @@ e1003-base.yaml                 # 共享 packages 组装
 │   └── e1003_system.h          # Wi-Fi 定向重置辅助
 ├── assets/                     # 设计稿 PNG、生成的位图头文件、内置字体(assets/fonts/)
 ├── tools/                      # png_to_h.py、layout_to_h.py
-├── ha/e1003_dashboard.yaml     # Home Assistant 包:转发脚本 + 示例自动化
+├── ha/
+│   ├── README.md               # Home Assistant 简明接入说明
+│   ├── e1003_demo.yaml         # 可选虚拟调光灯
+│   └── blueprints/automation/
+│       └── e1003_light_sync.yaml
 ├── docs/                       # 架构 / 配置 / 布局 / HA 集成 / 构建
 └── scripts/                    # build.py(Linux / Windows / macOS 同一个入口)
 ```

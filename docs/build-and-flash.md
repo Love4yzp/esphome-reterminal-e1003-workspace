@@ -95,10 +95,11 @@ the factory image.
 
 - Join the open MAC-suffixed AP and open `192.168.4.1`. If the provisioning
   window expired, reboot to reopen it. USB Improv Serial remains available.
-- Replace saved Wi-Fi: tap `CHANGE WI-FI` in the network card, then tap
-  `CONFIRM CHANGE` within eight seconds. After three confirmation beeps, the
-  panel removes only its Wi-Fi credentials, restarts, and opens the setup AP.
-  API encryption and runtime settings are preserved.
+- Replace saved Wi-Fi: tap the large SSID row at the top of the network card,
+  then tap it again within eight seconds when confirmation appears. After
+  three confirmation beeps, the panel removes only its Wi-Fi credentials,
+  restarts, and opens the setup AP. API encryption and runtime settings are
+  preserved.
 - mDNS discovery unavailable: read the station IP from the panel's network card
   and add the ESPHome integration manually with that address.
 - If firmware is unbootable, hold BOOT and flash the factory image over USB.

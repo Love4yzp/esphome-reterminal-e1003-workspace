@@ -79,7 +79,9 @@ protocol:
 few milliseconds apart, and a Home Assistant state burst can arrive as several
 API messages. `mode: restart` collapses them into one panel refresh instead of
 three. Network connectivity is sampled every five seconds, but it marks the
-network card dirty only when its visible state changes.
+network card dirty only when its visible state changes. Station RSSI is sampled
+every 30 seconds and redraws the card only when it crosses one of the four
+displayed signal levels.
 
 Never call `it8951.update` directly from a data source. If you add a card:
 

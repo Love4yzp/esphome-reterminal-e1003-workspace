@@ -1,4 +1,7 @@
 #pragma once
+
+#include <cmath>
+
 // =============================================================================
 // E1003 render helpers
 // =============================================================================
@@ -13,6 +16,18 @@
 #include "dashboard_static_v4.h"
 
 namespace e1003 {
+
+/// Convert station RSSI into the four signal levels used by the network card.
+///
+/// A value of zero is reserved for states where station RSSI is unavailable,
+/// such as setup AP mode or while searching for a network.
+inline int wifi_signal_bars(float rssi) {
+  if (std::isnan(rssi)) return 0;
+  if (rssi >= -55.0f) return 4;
+  if (rssi >= -67.0f) return 3;
+  if (rssi >= -78.0f) return 2;
+  return 1;
+}
 
 /// Paint the PackBits-RLE 4bpp grayscale bitmap over the whole panel.
 ///

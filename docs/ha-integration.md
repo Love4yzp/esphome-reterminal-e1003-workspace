@@ -80,6 +80,13 @@ When the setup AP is active it takes display priority, so the shown SSID is
 the network the user must join. `Last Update` in the footer is repainted only
 when the panel really renders another card.
 
+The icon above the SSID reflects the current network mode. A station connection
+shows one to four filled RSSI bars: four at `-55 dBm` or better, three down to
+`-67 dBm`, two down to `-78 dBm`, and one below that. RSSI is sampled every
+30 seconds, but the e-paper is refreshed only when the reading crosses into a
+different bar level. Searching shows four empty bar outlines; setup mode shows
+an `AP` badge instead of a signal-strength reading.
+
 ## IP address and mDNS
 
 The connected network card shows the current station IP as `IP <address>`.

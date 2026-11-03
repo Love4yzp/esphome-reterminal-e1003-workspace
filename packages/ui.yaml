@@ -45,6 +45,11 @@ globals:
     restore_value: no
     initial_value: '""'
 
+  - id: ui_wifi_signal_bars
+    type: int
+    restore_value: no
+    initial_value: '0'
+
   - id: ui_env_dirty
     type: bool
     restore_value: no
@@ -63,6 +68,27 @@ text_sensor:
     ssid:
       id: connected_wifi_ssid
       internal: true
+
+sensor:
+  # RSSI is sampled independently from connectivity. Only a change between the
+  # four visible signal levels marks the network card dirty.
+  - platform: wifi_signal
+    id: connected_wifi_signal
+    internal: true
+    update_interval: 30s
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                const int bars = e1003::wifi_signal_bars(x);
+                if (bars == id(ui_wifi_signal_bars)) return false;
+                id(ui_wifi_signal_bars) = bars;
+                if (!id(ui_ready)) return false;
+                id(ui_network_dirty) = true;
+                return true;
+            then:
+              - script.execute: ui_refresh
 
 interval:
   # Poll connectivity without refreshing the panel unless the visible state
@@ -285,13 +311,29 @@ display:
           it.rectangle(ssid_box.x, ssid_box.y,
                        ssid_box.w, ssid_box.h, BLACK);
 
-          const int signal_x = e1003::NETWORK_SSID_ANCHOR.x - 18;
-          const int signal_bottom = e1003::NETWORK_SSID_ANCHOR.y - 35;
-          for (int index = 0; index < 4; index++) {
-            const int height = 7 + index * 6;
-            it.filled_rectangle(signal_x + index * 10,
-                                signal_bottom - height,
-                                6, height, BLACK);
+          if (ap_active) {
+            const int badge_x = e1003::NETWORK_SSID_ANCHOR.x - 22;
+            const int badge_y = e1003::NETWORK_SSID_ANCHOR.y - 60;
+            it.rectangle(badge_x, badge_y, 44, 26, BLACK);
+            it.printf(e1003::NETWORK_SSID_ANCHOR.x,
+                      badge_y + 13,
+                      id(font_tiny), BLACK,
+                      esphome::display::TextAlign::CENTER, "%s", "AP");
+          } else {
+            const int signal_x = e1003::NETWORK_SSID_ANCHOR.x - 18;
+            const int signal_bottom = e1003::NETWORK_SSID_ANCHOR.y - 35;
+            const int filled_bars =
+                wifi_connected ? id(ui_wifi_signal_bars) : 0;
+            for (int index = 0; index < 4; index++) {
+              const int height = 7 + index * 6;
+              const int bar_x = signal_x + index * 10;
+              const int bar_y = signal_bottom - height;
+              if (index < filled_bars) {
+                it.filled_rectangle(bar_x, bar_y, 6, height, BLACK);
+              } else {
+                it.rectangle(bar_x, bar_y, 6, height, BLACK);
+              }
+            }
           }
 
           ssid = fit_network_text(ssid, id(font_small), ssid_box.w - 24);

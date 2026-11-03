@@ -23,6 +23,7 @@ OTA**。
 - 触摸热区采用 YAML 数据表定义，无需编写分支判断代码。
 - 构建期校验热区边界、字体文件与实体 ID，提前拦截布局错误。
 - 读取板载 SHT4x 温湿度传感器与 PCF8563 RTC，开机由 Home Assistant 同步校时。
+- 实体按键提供完整刷新、安全重启和 Wi-Fi 重配等系统级操作。
 - 按钮控制目标、服务动作与卡片文本通过 Home Assistant `text` 实体在运行时修改，免重新编译。
 - 工具链由 `uv` 管理并锁版本,Linux/macOS/Windows 共用同一个构建入口
 - 字体随仓库分发(`assets/fonts/`,SIL OFL 1.1):主机无需装字体,三平台字形一致
@@ -42,7 +43,9 @@ e1003-base.yaml                 # 共享 packages 组装
 │   ├── interaction.yaml        # 运行时配置、GT911 和 HA 动作
 │   ├── ha-direct-state.yaml    # 自定义构建可选的固定目标 adapter
 │   └── ha-pull.yaml            # 可选:设备反向拉取 HA 的 JSON
-├── src/e1003_render.h          # C++ 辅助函数(RLE 位图解码)
+├── src/
+│   ├── e1003_render.h          # C++ 辅助函数（RLE 位图解码）
+│   └── e1003_system.h          # 系统按键辅助与 Wi-Fi 定向重置
 ├── assets/                     # 设计稿 PNG、生成的位图头文件、内置字体(assets/fonts/)
 ├── tools/                      # png_to_h.py、layout_to_h.py
 ├── ha/e1003_dashboard.yaml     # Home Assistant 包:转发脚本 + 示例自动化
@@ -132,6 +135,14 @@ data:
 | 传感器 | SHT4x (温湿度), PCF8563 (RTC + 电池备份) |
 
 引脚定义在 `packages/defaults.yaml` 的 substitutions 里。
+
+### 实体按键
+
+| 按键 | 手势 | 功能 |
+|---|---|---|
+| 绿色键 | 单击 | 完整刷新 Dashboard |
+| 绿色键 | 长按 3 秒 | 安全重启设备 |
+| 两颗白键 | 长按 5 秒 | 重配 Wi-Fi |
 
 ## 许可
 

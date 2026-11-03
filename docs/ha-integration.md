@@ -86,14 +86,13 @@ network-specific static IP in public firmware.
 
 ## Changing Wi-Fi
 
-If the saved Wi-Fi is unavailable, the firmware starts its fallback setup AP.
-Join the MAC-suffixed AP, then open `192.168.4.1` and save the new network.
+Hold both white buttons for five seconds. Three short beeps confirm the action;
+the firmware removes only the saved Wi-Fi credentials and restarts. Join the
+MAC-suffixed setup AP, open `192.168.4.1`, and save the replacement network.
 
-If the old Wi-Fi is still reachable, the panel continues to use it. Temporarily
-make that network unavailable and reboot the panel to enter the fallback flow,
-or configure the new network over USB Improv Serial. The firmware intentionally
-does not expose a one-touch factory-reset control: factory reset also removes
-the API key, runtime target, display state, and action hooks.
+This is not a factory reset. The Home Assistant API key, runtime target, display
+state, and action hooks remain stored. If the physical buttons are unavailable,
+USB Improv Serial remains an alternative setup path.
 
 ## Troubleshooting
 
@@ -103,6 +102,6 @@ the API key, runtime target, display state, and action hooks.
 | touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
 | Home Assistant does not discover the panel | read the IP from the network card and add the ESPHome integration manually |
-| a different Wi-Fi is required | make the saved network unavailable, reboot, then use the fallback setup AP |
+| a different Wi-Fi is required | hold both white buttons for five seconds, then use the setup AP |
 | setup hotspot is unavailable | the 24-hour provisioning window may have closed; reboot the panel |
 | touch area is offset | verify the zone on hardware; do not remove the documented mirror conversion |

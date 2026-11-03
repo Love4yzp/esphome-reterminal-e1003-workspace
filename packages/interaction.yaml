@@ -12,7 +12,7 @@ globals:
     restore_value: no
     initial_value: 'false'
 
-  - id: wifi_reconfigure_triggered
+  - id: wifi_reconfigure_armed
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -108,56 +108,6 @@ binary_sensor:
               - script.execute: ui_beep
               - script.execute: ui_repaint
 
-  - platform: gpio
-    id: button_white_left
-    internal: true
-    pin:
-      number: ${pin_button_white_left}
-      mode:
-        input: true
-        pullup: true
-      inverted: true
-    filters:
-      - delayed_on_off: 20ms
-    on_press:
-      then:
-        - lambda: |-
-            id(wifi_reconfigure_triggered) = false;
-        - script.execute: wifi_reconfigure_hold
-    on_release:
-      then:
-        - if:
-            condition:
-              lambda: |-
-                return !id(wifi_reconfigure_triggered);
-            then:
-              - script.stop: wifi_reconfigure_hold
-
-  - platform: gpio
-    id: button_white_right
-    internal: true
-    pin:
-      number: ${pin_button_white_right}
-      mode:
-        input: true
-        pullup: true
-      inverted: true
-    filters:
-      - delayed_on_off: 20ms
-    on_press:
-      then:
-        - lambda: |-
-            id(wifi_reconfigure_triggered) = false;
-        - script.execute: wifi_reconfigure_hold
-    on_release:
-      then:
-        - if:
-            condition:
-              lambda: |-
-                return !id(wifi_reconfigure_triggered);
-            then:
-              - script.stop: wifi_reconfigure_hold
-
 touchscreen:
   - platform: gt911
     id: e1003_touch
@@ -212,24 +162,33 @@ script:
             - lambda: |-
                 App.safe_reboot();
 
-  - id: wifi_reconfigure_hold
+  - id: wifi_reconfigure_disarm
     mode: restart
+    then:
+      - delay: 8s
+      - lambda: |-
+          id(wifi_reconfigure_armed) = false;
+          id(ui_network_dirty) = true;
+      - script.execute: ui_refresh
+
+  - id: wifi_reconfigure_touch
+    mode: queued
+    max_runs: 2
     then:
       - if:
           condition:
-            and:
-              - binary_sensor.is_on: button_white_left
-              - binary_sensor.is_on: button_white_right
+            lambda: |-
+              return wifi::global_wifi_component != nullptr
+                  && !wifi::global_wifi_component->is_ap_active();
           then:
-            - delay: 5s
             - if:
                 condition:
-                  and:
-                    - binary_sensor.is_on: button_white_left
-                    - binary_sensor.is_on: button_white_right
+                  lambda: |-
+                    return id(wifi_reconfigure_armed);
                 then:
+                  - script.stop: wifi_reconfigure_disarm
                   - lambda: |-
-                      id(wifi_reconfigure_triggered) = true;
+                      id(wifi_reconfigure_armed) = false;
                   - script.execute: ui_beep_warning
                   - script.wait: ui_beep_warning
                   - if:
@@ -241,7 +200,15 @@ script:
                             App.safe_reboot();
                       else:
                         - lambda: |-
-                            id(wifi_reconfigure_triggered) = false;
+                            id(ui_network_dirty) = true;
+                        - script.execute: ui_refresh
+                else:
+                  - script.execute: ui_beep
+                  - lambda: |-
+                      id(wifi_reconfigure_armed) = true;
+                      id(ui_network_dirty) = true;
+                  - script.execute: ui_refresh
+                  - script.execute: wifi_reconfigure_disarm
 
   - id: zone_dispatch
     mode: queued
@@ -254,7 +221,20 @@ script:
       data_name: string
       data_value: string
     then:
-      - script.execute: ui_beep
+      - if:
+          condition:
+            lambda: |-
+              return op == 3 && data_name == "action"
+                  && data_value == "wifi_reconfigure";
+          then:
+            - script.execute: wifi_reconfigure_touch
+
+      - if:
+          condition:
+            lambda: |-
+              return op != 3;
+          then:
+            - script.execute: ui_beep
 
       - if:
           condition:
@@ -273,7 +253,7 @@ script:
       - if:
           condition:
             lambda: |-
-              return op != 2;
+              return op < 2;
           then:
             - if:
                 condition:

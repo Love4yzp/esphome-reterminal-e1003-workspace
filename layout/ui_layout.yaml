@@ -68,9 +68,16 @@ controls:
 #   toggle  call `homeassistant.toggle` on the control's runtime target
 #   call    call an explicit light action on the runtime target
 #   script  call the dedicated Reachy runtime hook with {zone, action}
+#   system  perform a local device action without involving Home Assistant
 # The general zone hook replaces direct mode for light zones only.
 # -----------------------------------------------------------------------------
 zones:
+  - id: wifi_reconfigure
+    label: "Change the saved Wi-Fi network"
+    area: { x1: 1527, y1: 65, x2: 1805, y2: 134 }
+    op: system
+    data: { action: "wifi_reconfigure" }
+
   - id: light_off
     label: "Turn main light off"
     control: main_light
@@ -162,12 +169,15 @@ zones:
 cards:
   network:
     fields:
-      - id: network_status
+      - id: network_action
         source: text
         clear: { x: 1527, y: 65, w: 278, h: 69 }
-        anchor: { x: 1531, y: 72 }
-        align: top_left
-        font: font_large
+        track: { x: 1527, y: 65, w: 278, h: 69 }
+      - id: network_action_label
+        source: text
+        anchor: { x: 1666, y: 99 }
+        align: center
+        font: font_small
       - id: network_role
         source: text
         clear: { x: 1578, y: 171, w: 205, h: 23 }

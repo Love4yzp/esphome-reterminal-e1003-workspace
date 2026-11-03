@@ -5,7 +5,7 @@
 //
 // source : layout/ui_layout.yaml
 // tool   : tools/layout_to_h.py
-// built  : 2026-11-02 00:00:02
+// built  : 2026-11-02 20:18:35
 // ============================================================
 
 #include <cstdint>
@@ -41,7 +41,7 @@ static constexpr uint8_t SOURCE_TEXT = 3;
 static constexpr uint8_t SOURCE_LIGHT_STATE = 4;
 static constexpr uint8_t SOURCE_LIGHT_VALUE = 5;
 
-enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT };
+enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT, SYSTEM };
 
 // ---- touch zones ---------------------------------------------
 struct Zone {
@@ -54,6 +54,7 @@ struct Zone {
 };
 
 static constexpr Zone ZONES[] = {
+  {"wifi_reconfigure", {1527, 65, 1805, 134}, nullptr, ZoneOp::SYSTEM, "action", "wifi_reconfigure"},
   {"light_off", {1507, 508, 1643, 587}, "main_light", ZoneOp::CALL, "state", "off"},
   {"light_on", {1644, 508, 1781, 587}, "main_light", ZoneOp::CALL, "state", "on"},
   {"light_25", {1245, 681, 1369, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "25"},
@@ -67,13 +68,15 @@ static constexpr Zone ZONES[] = {
   {"reachy_wake", {1523, 1092, 1660, 1227}, nullptr, ZoneOp::SCRIPT, "action", "wake"},
   {"reachy_language", {1674, 1092, 1810, 1227}, nullptr, ZoneOp::SCRIPT, "action", "language"},
 };
-static constexpr size_t ZONE_COUNT = 12;
+static constexpr size_t ZONE_COUNT = 13;
 
 // ---- card: network -------------------------------------
-static constexpr uint8_t NETWORK_STATUS_SOURCE = SOURCE_TEXT;
-static constexpr Rect NETWORK_STATUS_CLEAR{1527, 65, 278, 69};
-static constexpr Point NETWORK_STATUS_ANCHOR{1531, 72};
-static constexpr esphome::display::TextAlign NETWORK_STATUS_ALIGN = esphome::display::TextAlign::TOP_LEFT;
+static constexpr uint8_t NETWORK_ACTION_SOURCE = SOURCE_TEXT;
+static constexpr Rect NETWORK_ACTION_CLEAR{1527, 65, 278, 69};
+static constexpr Rect NETWORK_ACTION_TRACK{1527, 65, 278, 69};
+static constexpr uint8_t NETWORK_ACTION_LABEL_SOURCE = SOURCE_TEXT;
+static constexpr Point NETWORK_ACTION_LABEL_ANCHOR{1666, 99};
+static constexpr esphome::display::TextAlign NETWORK_ACTION_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
 static constexpr uint8_t NETWORK_ROLE_SOURCE = SOURCE_TEXT;
 static constexpr Rect NETWORK_ROLE_CLEAR{1578, 171, 205, 23};
 static constexpr Point NETWORK_ROLE_ANCHOR{1578, 171};

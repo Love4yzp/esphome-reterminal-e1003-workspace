@@ -50,7 +50,12 @@ ALIGN_MAP = {
     "baseline_right": "BASELINE_RIGHT",
 }
 
-OP_MAP = {"toggle": "TOGGLE", "call": "CALL", "script": "SCRIPT"}
+OP_MAP = {
+    "toggle": "TOGGLE",
+    "call": "CALL",
+    "script": "SCRIPT",
+    "system": "SYSTEM",
+}
 
 SOURCE_MAP = {
     "clock": "CLOCK",
@@ -235,8 +240,8 @@ def validate(cfg: dict) -> Problems:
             problems.add(where, f"unknown control '{control}'")
         if zone.get("op") not in OP_MAP:
             problems.add(where, f"unknown op '{zone.get('op')}'")
-        if zone.get("op") == "script" and control:
-            problems.add(where, "'script' op does not take a control")
+        if zone.get("op") in {"script", "system"} and control:
+            problems.add(where, f"'{zone.get('op')}' op does not take a control")
 
     # ---- cards -----------------------------------------------------------
     seen_fields: set[str] = set()
@@ -352,7 +357,7 @@ def emit_header(cfg: dict) -> str:
     for index, name in enumerate(SOURCE_MAP.values()):
         add(f"static constexpr uint8_t SOURCE_{name} = {index};")
     add("")
-    add("enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT };")
+    add("enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT, SYSTEM };")
     add("")
     add("// ---- touch zones ---------------------------------------------")
     add("struct Zone {")

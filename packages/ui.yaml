@@ -388,7 +388,7 @@ display:
 
       auto draw_footer = [&]() {
         const e1003::Rect footer = e1003::FOOTER_TIME_CLEAR;
-        it.filled_rectangle(footer.x, footer.y, footer.w, footer.h, G2);
+        it.filled_rectangle(footer.x, footer.y, footer.w, footer.h, WHITE);
 
         auto now = id(rtc_time).now();
         if (now.is_valid()) {

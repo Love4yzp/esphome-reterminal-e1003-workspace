@@ -314,6 +314,40 @@ script:
           then:
             - script.execute: ui_beep
 
+      # Reflect the user's light intent immediately. Home Assistant's mirrored
+      # state remains authoritative and can correct this optimistic value.
+      - lambda: |-
+          const bool is_call = op == (int) e1003::ZoneOp::CALL;
+          const bool is_slider = op == (int) e1003::ZoneOp::SLIDER;
+          if (!is_call && !is_slider) return;
+
+          if (data_name == "state"
+              && (data_value == "on" || data_value == "off")) {
+            if (id(cfg_state_main_light).state != data_value) {
+              id(cfg_state_main_light).publish_state(data_value);
+            }
+            return;
+          }
+
+          if (data_name != "brightness_pct") return;
+
+          int value = 0;
+          for (const char c : data_value) {
+            if (c < '0' || c > '9') break;
+            value = value * 10 + (c - '0');
+          }
+          if (value > 100) value = 100;
+
+          const std::string normalized = std::to_string(value);
+          if (id(cfg_value_main_light).state != normalized) {
+            id(cfg_value_main_light).publish_state(normalized);
+          }
+
+          const std::string next_state = value == 0 ? "off" : "on";
+          if (id(cfg_state_main_light).state != next_state) {
+            id(cfg_state_main_light).publish_state(next_state);
+          }
+
       - if:
           condition:
             lambda: |-

@@ -21,8 +21,5 @@ substitutions:
   beep_brightness: "50%"
   beep_duration: 80ms
 
-  # Public firmware starts without a Home Assistant target.
-  default_light_target: ""
-
   font_regular: "assets/fonts/LiberationSans-Regular.ttf"
   font_bold: "assets/fonts/LiberationSans-Bold.ttf"

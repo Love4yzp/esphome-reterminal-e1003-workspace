@@ -226,10 +226,6 @@ display:
         return value;
       };
 
-      auto light_configured = [&]() -> bool {
-        return !id(cfg_target_main_light).state.empty();
-      };
-
       auto light_has_state = [&]() -> bool {
         const std::string state = id(cfg_state_main_light).state;
         return state == "on" || state == "off";
@@ -401,10 +397,8 @@ display:
       };
 
       auto draw_light = [&]() {
-        const bool configured = light_configured();
         const bool has_state = light_has_state();
-        const bool has_display_data =
-            configured || has_state || light_has_value();
+        const bool has_display_data = has_state || light_has_value();
         const bool on = light_on();
         const int pct = light_pct();
 

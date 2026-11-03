@@ -5,8 +5,18 @@
 esphome:
   includes:
     - src/e1003_system.h
+  on_boot:
+    priority: -90
+    then:
+      - lambda: |-
+          id(main_light_command).publish_state("0|idle|0");
 
 globals:
+  - id: main_light_command_sequence
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
   - id: green_button_hold_triggered
     type: bool
     restore_value: no
@@ -52,20 +62,6 @@ text:
     initial_value: ""
 
   - platform: template
-    id: cfg_target_main_light
-    name: "${friendly_name} Main light target"
-    mode: text
-    optimistic: true
-    restore_value: true
-    max_length: 63
-    initial_value: "${default_light_target}"
-    on_value:
-      then:
-        - lambda: |-
-            id(ui_light_dirty) = true;
-        - script.execute: ui_refresh
-
-  - platform: template
     id: cfg_state_main_light
     name: "${friendly_name} Main light state"
     mode: text
@@ -92,6 +88,15 @@ text:
         - lambda: |-
             id(ui_light_dirty) = true;
         - script.execute: ui_refresh
+
+text_sensor:
+  # Read-only command channel consumed by the HA blueprint. A sequence prefix
+  # makes repeated taps of the same control produce distinct state changes.
+  - platform: template
+    id: main_light_command
+    name: "${friendly_name} Main light command"
+    icon: mdi:gesture-tap-button
+    update_interval: never
 
 binary_sensor:
   - platform: gpio
@@ -155,18 +160,11 @@ touchscreen:
               return;
             }
 
-            const std::string target = zone.control != nullptr
-                && strcmp(zone.control, "main_light") == 0
-              ? id(cfg_target_main_light).state
-              : std::string();
-
-            ESP_LOGI("e1003", "zone '%s' op=%d target='%s'", zone.id,
-                     (int) zone.op, target.c_str());
+            ESP_LOGI("e1003", "zone '%s' op=%d", zone.id, (int) zone.op);
 
             id(zone_dispatch)->execute(
                 std::string(zone.id),
                 zone.control != nullptr ? std::string(zone.control) : std::string(),
-                target,
                 (int) zone.op,
                 zone.data_key != nullptr ? std::string(zone.data_key) : std::string(),
                 zone.data_value != nullptr ? std::string(zone.data_value) : std::string());
@@ -205,18 +203,13 @@ touchscreen:
           for (const auto &zone : e1003::ZONES) {
             if (zone.op != e1003::ZoneOp::SLIDER) continue;
 
-            const std::string target = zone.control != nullptr
-                && strcmp(zone.control, "main_light") == 0
-              ? id(cfg_target_main_light).state
-              : std::string();
             const std::string value = std::to_string(id(light_slider_value));
 
-            ESP_LOGI("e1003", "slider '%s' commit=%s%% target='%s'",
-                     zone.id, value.c_str(), target.c_str());
+            ESP_LOGI("e1003", "slider '%s' commit=%s%%",
+                     zone.id, value.c_str());
             id(zone_dispatch)->execute(
                 std::string(zone.id),
                 zone.control != nullptr ? std::string(zone.control) : std::string(),
-                target,
                 (int) zone.op,
                 zone.data_key != nullptr ? std::string(zone.data_key) : std::string(),
                 value);
@@ -293,7 +286,6 @@ script:
     parameters:
       zone_id: string
       control: string
-      target: string
       op: int
       data_name: string
       data_value: string
@@ -363,12 +355,15 @@ script:
                   action: !lambda |-
                     return data_value;
 
+      # The normal light path is permission-free: publish an entity state and
+      # let the HA-side blueprint perform the service call inside HA.
       - if:
           condition:
             lambda: |-
-              return op == (int) e1003::ZoneOp::TOGGLE
-                  || op == (int) e1003::ZoneOp::CALL
-                  || op == (int) e1003::ZoneOp::SLIDER;
+              return control == "main_light"
+                  && (op == (int) e1003::ZoneOp::TOGGLE
+                      || op == (int) e1003::ZoneOp::CALL
+                      || op == (int) e1003::ZoneOp::SLIDER);
           then:
             - if:
                 condition:
@@ -388,64 +383,14 @@ script:
                         data_value: !lambda |-
                           return data_value;
                 else:
-                  - if:
-                      condition:
-                        lambda: |-
-                          return op == (int) e1003::ZoneOp::TOGGLE
-                              && !target.empty();
-                      then:
-                        - homeassistant.action:
-                            action: homeassistant.toggle
-                            data_template:
-                              entity_id: !lambda |-
-                                return target;
-
-                  - if:
-                      condition:
-                        lambda: |-
-                          return !target.empty()
-                              && ((op == (int) e1003::ZoneOp::CALL
-                                   && data_name == "state"
-                                   && data_value == "off")
-                                  || (op == (int) e1003::ZoneOp::SLIDER
-                                      && data_name == "brightness_pct"
-                                      && data_value == "0"));
-                      then:
-                        - homeassistant.action:
-                            action: light.turn_off
-                            data_template:
-                              entity_id: !lambda |-
-                                return target;
-
-                  - if:
-                      condition:
-                        lambda: |-
-                          return op == (int) e1003::ZoneOp::CALL
-                              && data_name == "state"
-                              && data_value == "on" && !target.empty();
-                      then:
-                        - homeassistant.action:
-                            action: light.turn_on
-                            data_template:
-                              entity_id: !lambda |-
-                                return target;
-
-                  - if:
-                      condition:
-                        lambda: |-
-                          return (op == (int) e1003::ZoneOp::CALL
-                                  || op == (int) e1003::ZoneOp::SLIDER)
-                              && data_name == "brightness_pct"
-                              && data_value != "0"
-                              && !target.empty();
-                      then:
-                        - homeassistant.action:
-                            action: light.turn_on
-                            data_template:
-                              entity_id: !lambda |-
-                                return target;
-                              brightness_pct: !lambda |-
-                                return data_value;
+                  - lambda: |-
+                      id(main_light_command_sequence)++;
+                      const std::string command =
+                          std::to_string(id(main_light_command_sequence))
+                          + "|" + data_name + "|" + data_value;
+                      ESP_LOGI("e1003", "publish main light command '%s'",
+                               command.c_str());
+                      id(main_light_command).publish_state(command);
 
 api:
   actions:

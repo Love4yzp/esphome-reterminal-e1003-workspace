@@ -1,8 +1,10 @@
 blueprint:
   name: "E1003: connect one light to the panel"
   description: >-
-    Select a Home Assistant light. The automation tells the panel which entity
-    to control and mirrors its on/off state and brightness to the e-paper card.
+    Select a Home Assistant light. Panel touches publish commands through an
+    ESPHome sensor, this automation performs the light actions inside Home
+    Assistant, and the real state is mirrored back to the e-paper card. No
+    ESPHome action permission is required.
   domain: automation
   input:
     light_entity:
@@ -11,12 +13,12 @@ blueprint:
       selector:
         entity:
           domain: light
-    panel_target:
-      name: Panel target
-      description: Select the panel text entity ending in Main light target.
+    panel_command:
+      name: Panel command
+      description: Select the panel sensor ending in Main light command.
       selector:
         entity:
-          domain: text
+          domain: sensor
     panel_state:
       name: Panel state
       description: Select the panel text entity ending in Main light state.
@@ -30,34 +32,109 @@ blueprint:
         entity:
           domain: text
 
-mode: restart
+mode: queued
+max: 10
 
 triggers:
   - trigger: state
     entity_id: !input light_entity
+    id: light_state
+  - trigger: state
+    entity_id: !input panel_command
+    id: panel_command
   - trigger: homeassistant
     event: start
+    id: homeassistant_start
 
 variables:
   light_entity: !input light_entity
 
 actions:
-  - action: text.set_value
-    target:
-      entity_id: !input panel_target
-    data:
-      value: "{{ light_entity }}"
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.id == 'panel_command'
+                 and trigger.to_state is not none }}
+        sequence:
+          - variables:
+              command_parts: "{{ trigger.to_state.state.split('|') }}"
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ command_parts | length == 3
+                         and command_parts[1] == 'state'
+                         and command_parts[2] == 'off' }}
+                sequence:
+                  - action: light.turn_off
+                    target:
+                      entity_id: !input light_entity
 
-  - action: text.set_value
-    target:
-      entity_id: !input panel_state
-    data:
-      value: "{{ states(light_entity) }}"
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ command_parts | length == 3
+                         and command_parts[1] == 'state'
+                         and command_parts[2] == 'on' }}
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input light_entity
 
-  - action: text.set_value
-    target:
-      entity_id: !input panel_value
-    data:
-      value: >-
-        {{ ((state_attr(light_entity, 'brightness') or 0) / 2.55)
-           | round(0) | int }}
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ command_parts | length == 3
+                         and command_parts[1] == 'brightness_pct'
+                         and (command_parts[2] | int(0)) <= 0 }}
+                sequence:
+                  - action: light.turn_off
+                    target:
+                      entity_id: !input light_entity
+
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ command_parts | length == 3
+                         and command_parts[1] == 'brightness_pct'
+                         and (command_parts[2] | int(0)) > 0
+                         and (command_parts[2] | int(0)) <= 100 }}
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input light_entity
+                    data:
+                      brightness_pct: "{{ command_parts[2] | int }}"
+
+          # Mirror the authoritative result after every command. The light
+          # state trigger may also run; ESPHome's refresh debounce coalesces
+          # the resulting state/value updates.
+          - action: text.set_value
+            target:
+              entity_id: !input panel_state
+            data:
+              value: "{{ states(light_entity) }}"
+
+          - action: text.set_value
+            target:
+              entity_id: !input panel_value
+            data:
+              value: >-
+                {{ ((state_attr(light_entity, 'brightness') or 0) / 2.55)
+                   | round(0) | int }}
+
+    default:
+      - action: text.set_value
+        target:
+          entity_id: !input panel_state
+        data:
+          value: "{{ states(light_entity) }}"
+
+      - action: text.set_value
+        target:
+          entity_id: !input panel_value
+        data:
+          value: >-
+            {{ ((state_attr(light_entity, 'brightness') or 0) / 2.55)
+               | round(0) | int }}

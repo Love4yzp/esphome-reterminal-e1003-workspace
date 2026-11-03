@@ -50,10 +50,10 @@ DEFAULT_ALIAS = "E1003 panel light sync"
 MANAGED_MARKER = "scripts/deploy_ha.py"
 DEFAULT_URL = "http://homeassistant.local:8123"
 
-ENTITY_SUFFIXES = {
-    "target": "_main_light_target",
-    "state": "_main_light_state",
-    "value": "_main_light_value",
+ENTITY_SPECS = {
+    "command": ("sensor", "_main_light_command"),
+    "state": ("text", "_main_light_state"),
+    "value": ("text", "_main_light_value"),
 }
 
 
@@ -355,12 +355,12 @@ def find_entities(
     states: list[dict[str, Any]], panel_filter: str | None
 ) -> dict[str, dict[str, Any]]:
     found: dict[str, dict[str, Any]] = {}
-    for role, suffix in ENTITY_SUFFIXES.items():
+    for role, (domain, suffix) in ENTITY_SPECS.items():
         candidates = [
             state
             for state in states
             if state["entity_id"].endswith(suffix)
-            and state["entity_id"].startswith("text.")
+            and state["entity_id"].startswith(f"{domain}.")
         ]
         if panel_filter:
             needle = panel_filter.lower()
@@ -373,7 +373,7 @@ def find_entities(
             ]
         if not candidates:
             raise HaError(
-                f"No {role} text entity ending in {suffix} was found. "
+                f"No {role} {domain} entity ending in {suffix} was found. "
                 "Check that the E1003 is connected and use --panel to select a device."
             )
         if len(candidates) > 1:
@@ -384,11 +384,11 @@ def find_entities(
             )
         found[role] = candidates[0]
 
-    prefixes = {
-        state["entity_id"][: -len(ENTITY_SUFFIXES[role])]
+    device_stems = {
+        state["entity_id"].split(".", 1)[1][: -len(ENTITY_SPECS[role][1])]
         for role, state in found.items()
     }
-    if len(prefixes) != 1:
+    if len(device_stems) != 1:
         raise HaError(
             "The three panel entities do not belong to the same device: "
             + ", ".join(state["entity_id"] for state in found.values())
@@ -515,7 +515,7 @@ def main() -> int:
                     raise
 
             if args.list:
-                print("\nPanel text entities:")
+                print("\nPanel entities:")
                 for role, state in panel_entities.items():
                     print(f"  {role:6} {state['entity_id']}")
 
@@ -617,7 +617,7 @@ def main() -> int:
                 "path": blueprint_path,
                 "input": {
                     "light_entity": args.light,
-                    "panel_target": panel_entities["target"]["entity_id"],
+                    "panel_command": panel_entities["command"]["entity_id"],
                     "panel_state": panel_entities["state"]["entity_id"],
                     "panel_value": panel_entities["value"]["entity_id"],
                 },

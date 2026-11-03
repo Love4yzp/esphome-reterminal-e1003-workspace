@@ -65,12 +65,12 @@ controls:
 # TOUCH ZONES
 # -----------------------------------------------------------------------------
 # op:
-#   toggle  call `homeassistant.toggle` on the control's runtime target
-#   call    call an explicit light action on the runtime target
+#   toggle  publish a toggle command for the control
+#   call    publish an explicit control command
 #   slider  map a horizontal touch position to a 0-100 control value
 #   script  call the dedicated Reachy runtime hook with {zone, action}
 #   system  perform a local device action without involving Home Assistant
-# The general zone hook replaces direct mode for light zones only.
+# The general zone hook replaces command publishing for light zones only.
 # -----------------------------------------------------------------------------
 zones:
   - id: wifi_reconfigure

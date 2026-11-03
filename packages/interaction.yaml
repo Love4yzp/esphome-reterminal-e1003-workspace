@@ -17,6 +17,21 @@ globals:
     restore_value: no
     initial_value: 'false'
 
+  - id: light_slider_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: light_slider_touch_id
+    type: int
+    restore_value: no
+    initial_value: '-1'
+
+  - id: light_slider_value
+    type: int
+    restore_value: no
+    initial_value: '0'
+
 text:
   - platform: template
     id: cfg_script_hook
@@ -128,6 +143,18 @@ touchscreen:
             if (x < zone.area.x1 || x > zone.area.x2) continue;
             if (y < zone.area.y1 || y > zone.area.y2) continue;
 
+            if (zone.op == e1003::ZoneOp::SLIDER) {
+              const int span = zone.area.x2 - zone.area.x1;
+              const int position = x - zone.area.x1;
+              id(light_slider_active) = true;
+              id(light_slider_touch_id) = touch.id;
+              id(light_slider_value) =
+                  (position * 100 + span / 2) / span;
+              ESP_LOGI("e1003", "slider '%s' start=%d%%",
+                       zone.id, id(light_slider_value));
+              return;
+            }
+
             const std::string target = zone.control != nullptr
                 && strcmp(zone.control, "main_light") == 0
               ? id(cfg_target_main_light).state
@@ -143,6 +170,56 @@ touchscreen:
                 (int) zone.op,
                 zone.data_key != nullptr ? std::string(zone.data_key) : std::string(),
                 zone.data_value != nullptr ? std::string(zone.data_value) : std::string());
+            return;
+          }
+
+    on_update:
+      - lambda: |-
+          if (!id(light_slider_active)) return;
+
+          for (const auto &touch : touches) {
+            if (touch.id != id(light_slider_touch_id) || touch.state > 2) continue;
+
+            const int x = ${canvas_width} - touch.x;
+            for (const auto &zone : e1003::ZONES) {
+              if (zone.op != e1003::ZoneOp::SLIDER) continue;
+
+              const int clamped_x = x < zone.area.x1
+                  ? zone.area.x1
+                  : (x > zone.area.x2 ? zone.area.x2 : x);
+              const int span = zone.area.x2 - zone.area.x1;
+              const int position = clamped_x - zone.area.x1;
+              id(light_slider_value) =
+                  (position * 100 + span / 2) / span;
+              return;
+            }
+          }
+
+    on_release:
+      - lambda: |-
+          if (!id(light_slider_active)) return;
+
+          id(light_slider_active) = false;
+          id(light_slider_touch_id) = -1;
+
+          for (const auto &zone : e1003::ZONES) {
+            if (zone.op != e1003::ZoneOp::SLIDER) continue;
+
+            const std::string target = zone.control != nullptr
+                && strcmp(zone.control, "main_light") == 0
+              ? id(cfg_target_main_light).state
+              : std::string();
+            const std::string value = std::to_string(id(light_slider_value));
+
+            ESP_LOGI("e1003", "slider '%s' commit=%s%% target='%s'",
+                     zone.id, value.c_str(), target.c_str());
+            id(zone_dispatch)->execute(
+                std::string(zone.id),
+                zone.control != nullptr ? std::string(zone.control) : std::string(),
+                target,
+                (int) zone.op,
+                zone.data_key != nullptr ? std::string(zone.data_key) : std::string(),
+                value);
             return;
           }
 
@@ -224,7 +301,8 @@ script:
       - if:
           condition:
             lambda: |-
-              return op == 3 && data_name == "action"
+              return op == (int) e1003::ZoneOp::SYSTEM
+                  && data_name == "action"
                   && data_value == "wifi_reconfigure";
           then:
             - script.execute: wifi_reconfigure_touch
@@ -232,14 +310,15 @@ script:
       - if:
           condition:
             lambda: |-
-              return op != 3;
+              return op != (int) e1003::ZoneOp::SYSTEM;
           then:
             - script.execute: ui_beep
 
       - if:
           condition:
             lambda: |-
-              return op == 2 && !id(cfg_reachy_script_hook).state.empty();
+              return op == (int) e1003::ZoneOp::SCRIPT
+                  && !id(cfg_reachy_script_hook).state.empty();
           then:
             - homeassistant.action:
                 action: !lambda |-
@@ -253,7 +332,9 @@ script:
       - if:
           condition:
             lambda: |-
-              return op < 2;
+              return op == (int) e1003::ZoneOp::TOGGLE
+                  || op == (int) e1003::ZoneOp::CALL
+                  || op == (int) e1003::ZoneOp::SLIDER;
           then:
             - if:
                 condition:
@@ -276,7 +357,8 @@ script:
                   - if:
                       condition:
                         lambda: |-
-                          return op == 0 && !target.empty();
+                          return op == (int) e1003::ZoneOp::TOGGLE
+                              && !target.empty();
                       then:
                         - homeassistant.action:
                             action: homeassistant.toggle
@@ -287,8 +369,13 @@ script:
                   - if:
                       condition:
                         lambda: |-
-                          return op == 1 && data_name == "state"
-                              && data_value == "off" && !target.empty();
+                          return !target.empty()
+                              && ((op == (int) e1003::ZoneOp::CALL
+                                   && data_name == "state"
+                                   && data_value == "off")
+                                  || (op == (int) e1003::ZoneOp::SLIDER
+                                      && data_name == "brightness_pct"
+                                      && data_value == "0"));
                       then:
                         - homeassistant.action:
                             action: light.turn_off
@@ -299,7 +386,8 @@ script:
                   - if:
                       condition:
                         lambda: |-
-                          return op == 1 && data_name == "state"
+                          return op == (int) e1003::ZoneOp::CALL
+                              && data_name == "state"
                               && data_value == "on" && !target.empty();
                       then:
                         - homeassistant.action:
@@ -311,7 +399,10 @@ script:
                   - if:
                       condition:
                         lambda: |-
-                          return op == 1 && data_name == "brightness_pct"
+                          return (op == (int) e1003::ZoneOp::CALL
+                                  || op == (int) e1003::ZoneOp::SLIDER)
+                              && data_name == "brightness_pct"
+                              && data_value != "0"
                               && !target.empty();
                       then:
                         - homeassistant.action:

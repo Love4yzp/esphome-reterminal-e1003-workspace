@@ -5,7 +5,7 @@
 //
 // source : layout/ui_layout.yaml
 // tool   : tools/layout_to_h.py
-// built  : 2026-11-02 20:38:30
+// built  : 2026-11-02 23:46:29
 // ============================================================
 
 #include <cstdint>
@@ -41,7 +41,7 @@ static constexpr uint8_t SOURCE_TEXT = 3;
 static constexpr uint8_t SOURCE_LIGHT_STATE = 4;
 static constexpr uint8_t SOURCE_LIGHT_VALUE = 5;
 
-enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT, SYSTEM };
+enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT, SYSTEM, SLIDER };
 
 // ---- touch zones ---------------------------------------------
 struct Zone {
@@ -61,6 +61,7 @@ static constexpr Zone ZONES[] = {
   {"light_50", {1385, 681, 1509, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "50"},
   {"light_75", {1524, 681, 1648, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "75"},
   {"light_100", {1664, 681, 1806, 756}, "main_light", ZoneOp::CALL, "brightness_pct", "100"},
+  {"light_slider", {1245, 770, 1806, 836}, "main_light", ZoneOp::SLIDER, "brightness_pct", "touch"},
   {"reachy_retail_intro", {1372, 950, 1507, 1077}, nullptr, ZoneOp::SCRIPT, "action", "retail_intro"},
   {"reachy_space_intro", {1523, 950, 1660, 1077}, nullptr, ZoneOp::SCRIPT, "action", "space_intro"},
   {"reachy_rescue_intro", {1674, 950, 1810, 1077}, nullptr, ZoneOp::SCRIPT, "action", "rescue_intro"},
@@ -68,7 +69,7 @@ static constexpr Zone ZONES[] = {
   {"reachy_wake", {1523, 1092, 1660, 1227}, nullptr, ZoneOp::SCRIPT, "action", "wake"},
   {"reachy_language", {1674, 1092, 1810, 1227}, nullptr, ZoneOp::SCRIPT, "action", "language"},
 };
-static constexpr size_t ZONE_COUNT = 13;
+static constexpr size_t ZONE_COUNT = 14;
 
 // ---- card: network -------------------------------------
 static constexpr uint8_t NETWORK_PANEL_SOURCE = SOURCE_TEXT;
@@ -138,9 +139,9 @@ static constexpr Rect LIGHT_PRESET_100_TRACK{1664, 681, 142, 75};
 static constexpr uint8_t LIGHT_PRESET_100_LABEL_SOURCE = SOURCE_LIGHT_VALUE;
 static constexpr Point LIGHT_PRESET_100_LABEL_ANCHOR{1735, 719};
 static constexpr esphome::display::TextAlign LIGHT_PRESET_100_LABEL_ALIGN = esphome::display::TextAlign::CENTER;
-static constexpr uint8_t LIGHT_BAR_SOURCE = SOURCE_LIGHT_VALUE;
-static constexpr Rect LIGHT_BAR_CLEAR{1242, 780, 567, 45};
-static constexpr Rect LIGHT_BAR_TRACK{1245, 783, 561, 39};
+static constexpr uint8_t LIGHT_SLIDER_SOURCE = SOURCE_LIGHT_VALUE;
+static constexpr Rect LIGHT_SLIDER_CLEAR{1242, 780, 567, 45};
+static constexpr Rect LIGHT_SLIDER_TRACK{1260, 796, 531, 11};
 
 // ---- card: footer --------------------------------------
 static constexpr uint8_t FOOTER_TIME_SOURCE = SOURCE_RTC;

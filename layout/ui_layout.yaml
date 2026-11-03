@@ -67,6 +67,7 @@ controls:
 # op:
 #   toggle  call `homeassistant.toggle` on the control's runtime target
 #   call    call an explicit light action on the runtime target
+#   slider  map a horizontal touch position to a 0-100 control value
 #   script  call the dedicated Reachy runtime hook with {zone, action}
 #   system  perform a local device action without involving Home Assistant
 # The general zone hook replaces direct mode for light zones only.
@@ -119,6 +120,13 @@ zones:
     area: { x1: 1664, y1: 681, x2: 1806, y2: 756 }
     op: call
     data: { brightness_pct: "100" }
+
+  - id: light_slider
+    label: "Set main light brightness"
+    control: main_light
+    area: { x1: 1245, y1: 770, x2: 1806, y2: 836 }
+    op: slider
+    data: { brightness_pct: "touch" }
 
   - id: reachy_retail_intro
     label: "Reachy retail intro scene"
@@ -273,10 +281,10 @@ cards:
         anchor: { x: 1735, y: 719 }
         align: center
         font: font_medium
-      - id: light_bar
+      - id: light_slider
         source: light_value
         clear: { x: 1242, y: 780, w: 567, h: 45 }
-        track: { x: 1245, y: 783, w: 561, h: 39 }
+        track: { x: 1260, y: 796, w: 531, h: 11 }
 
   footer:
     fields:

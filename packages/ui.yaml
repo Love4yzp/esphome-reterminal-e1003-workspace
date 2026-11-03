@@ -471,12 +471,21 @@ display:
                     e1003::LIGHT_PRESET_100_LABEL_ANCHOR,
                     e1003::LIGHT_PRESET_100_LABEL_ALIGN, 100, "100%");
 
-        clear(e1003::LIGHT_BAR_CLEAR);
-        const e1003::Rect track = e1003::LIGHT_BAR_TRACK;
+        clear(e1003::LIGHT_SLIDER_CLEAR);
+        const e1003::Rect track = e1003::LIGHT_SLIDER_TRACK;
         it.filled_rectangle(track.x, track.y, track.w, track.h, G2);
-        const int filled = track.w * pct / 100;
+        const int filled = (track.w - 1) * pct / 100;
         if (has_display_data && filled > 0) {
-          it.filled_rectangle(track.x, track.y, filled, track.h, BLACK);
+          it.filled_rectangle(track.x, track.y, filled + 1, track.h, BLACK);
+        }
+
+        const int thumb_x = track.x + filled;
+        const int thumb_y = track.y + track.h / 2;
+        const int thumb_radius = track.h;
+        it.filled_circle(thumb_x, thumb_y, thumb_radius, WHITE);
+        it.circle(thumb_x, thumb_y, thumb_radius, BLACK);
+        if (has_display_data) {
+          it.filled_circle(thumb_x, thumb_y, thumb_radius / 3, BLACK);
         }
       };
 

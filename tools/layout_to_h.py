@@ -55,6 +55,7 @@ OP_MAP = {
     "call": "CALL",
     "script": "SCRIPT",
     "system": "SYSTEM",
+    "slider": "SLIDER",
 }
 
 SOURCE_MAP = {
@@ -242,6 +243,11 @@ def validate(cfg: dict) -> Problems:
             problems.add(where, f"unknown op '{zone.get('op')}'")
         if zone.get("op") in {"script", "system"} and control:
             problems.add(where, f"'{zone.get('op')}' op does not take a control")
+        if zone.get("op") == "slider":
+            if not control:
+                problems.add(where, "'slider' op requires a control")
+            if set((zone.get("data") or {}).keys()) != {"brightness_pct"}:
+                problems.add(where, "'slider' op requires brightness_pct data")
 
     # ---- cards -----------------------------------------------------------
     seen_fields: set[str] = set()
@@ -357,7 +363,7 @@ def emit_header(cfg: dict) -> str:
     for index, name in enumerate(SOURCE_MAP.values()):
         add(f"static constexpr uint8_t SOURCE_{name} = {index};")
     add("")
-    add("enum class ZoneOp : uint8_t { TOGGLE, CALL, SCRIPT, SYSTEM };")
+    add("enum class ZoneOp : uint8_t { " + ", ".join(OP_MAP.values()) + " };")
     add("")
     add("// ---- touch zones ---------------------------------------------")
     add("struct Zone {")

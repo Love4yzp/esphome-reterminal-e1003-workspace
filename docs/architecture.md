@@ -110,12 +110,17 @@ do not "fix" the mirroring formula.
 | Mode | Cost | Used for |
 |------|------|----------|
 | `GC16` | full panel, slow, 16 gray levels | boot paint, and every `full_update_every` refreshes to clear ghosting |
-| `DU` | local bounding box, fast, 2 levels | network status, environment numbers, light card, footer |
+| `DU` | local bounding box, fast, black/white only | network status, environment numbers, light card, footer |
 
 `update_interval: never` on the display component is intentional: the render
 pass only runs when the firmware asks for it. The SHT4x is sampled every ten
 minutes; there is no minute clock refresh. The footer time is painted during a
 real render and therefore means **Last Update**, not current wall-clock time.
+
+Every control repainted with `DU` must end in a monochrome frame. A gray pixel
+drawn into the framebuffer is not a reliable DU transition on this panel. The
+slider therefore uses a black outline, white unfilled track, and black filled
+track; grayscale remains available to the full `GC16` boot artwork.
 
 ## Build pipeline
 

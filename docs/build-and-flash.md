@@ -127,7 +127,7 @@ separate ESP-IDF installation; unset it when using ESPHome's managed toolchain.
 | | size |
 |---|---|
 | RAM | 32.0 % (109307 bytes of 341760 bytes) |
-| Flash | 70.8 % (1300015 bytes of 1835008 bytes) |
+| Flash | 70.8 % (1300039 bytes of 1835008 bytes) |
 
 The static bitmap dominates. Dropping an unused font or shrinking the RLE
 (PackBits compresses flat design areas very well) is the cheapest way to claw

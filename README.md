@@ -23,6 +23,7 @@ panel is a service call — no rebuild, no OTA.
 - Full-screen static UI compiled from a design PNG into a 4bpp PackBits-RLE bitmap, painted with `GC16` at boot.
 - Partial dynamic updates using `DU` waveform with `ui_refresh` debouncing to merge burst events.
 - Data-driven touch zones declared in YAML rather than written as code branches.
+- Tap-or-drag light slider with one brightness action on release.
 - Build-time validation for geometry boundaries, fonts, and entity IDs.
 - Onboard SHT4x temperature/humidity sensor and PCF8563 RTC with Home Assistant time sync.
 - A screen-level physical button for full repaint and safe restart.

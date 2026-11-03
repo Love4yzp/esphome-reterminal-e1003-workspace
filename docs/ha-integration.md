@@ -82,6 +82,8 @@ same entities with `text.set_value`.
 
 Direct mode is active when `zone_script_hook` is empty. ON and OFF call
 `light.turn_on` and `light.turn_off`; percentage zones use `light.turn_on`.
+The brightness slider sends one exact `0`–`100` value on release, with zero
+treated as off.
 
 For custom behavior, set the hook to an HA action such as
 `script.e1003_zone`. The panel passes `{zone, control, data_name, data_value}`

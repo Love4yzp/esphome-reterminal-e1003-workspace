@@ -86,7 +86,9 @@ With `zone_script_hook` empty:
 
 - the ON and OFF zones call `light.turn_on` and `light.turn_off`;
 - 25/50/75/100 percent zones call `light.turn_on` on the same target with
-  `brightness_pct`.
+  `brightness_pct`;
+- the brightness slider maps a tap or drag to `0`–`100`, then sends one action
+  when the finger is released. Zero turns the light off.
 
 Direct mode is intentionally light-specific. For a switch, fan, scene,
 conditions or per-zone custom logic, use hook mode.
@@ -111,6 +113,9 @@ Every light touch then calls that action with:
 | `control` | `main_light` |
 | `data_name` | `brightness_pct` |
 | `data_value` | `50` |
+
+The slider uses `zone: light_slider` and sends its exact release value in
+`data_value`.
 
 Hook mode replaces direct mode, so one touch cannot produce both actions. Clear
 the hook to return to direct mode.

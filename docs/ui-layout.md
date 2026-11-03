@@ -83,6 +83,11 @@ Use `op: system` for a local device action that does not target Home Assistant.
 System zones do not take a semantic control; dispatch their `data.action` value
 in `packages/interaction.yaml`.
 
+Use `op: slider` for a horizontal `brightness_pct` control. The touch starts
+inside the zone, follows horizontal movement, and commits one `0`–`100` value
+when the finger is released. This avoids sending repeated Home Assistant
+actions while dragging.
+
 ## Adding a dynamic card
 
 1. Add the card and its fields to `cards:`.

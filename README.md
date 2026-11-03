@@ -61,6 +61,7 @@ panel is a service call — no rebuild, no OTA.
 │   └── png_to_h.py             # convert the design PNG to a C++ header
 ├── scripts/
 │   ├── build.py                # cross-platform build, flash, and log driver
+│   ├── deploy_ha.py            # API-only HA blueprint and automation deployer
 │   └── make_release.py         # assemble release and browser-install artifacts
 ├── ha/
 │   ├── README.md               # UI-first Home Assistant setup

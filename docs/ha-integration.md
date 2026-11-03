@@ -40,6 +40,38 @@ target/state/value text entities. The blueprint:
 This is the normal setup. The firmware remains generic and no
 user Wi-Fi, API key or entity id is published in the release image.
 
+## Headless deployment over the API
+
+When Home Assistant is managed from a terminal, the same blueprint and
+automation can be deployed without opening the web interface. This does not
+require SSH access or a writable `/config`: the deployer uses the API that the
+frontend itself uses.
+
+```bash
+export HA_URL=http://homeassistant.local:8123
+export HA_USERNAME=your-user
+export HA_PASSWORD=your-password
+
+uv run python scripts/deploy_ha.py --list
+uv run python scripts/deploy_ha.py --light light.desk_lamp --trigger
+```
+
+The script:
+
+1. obtains a short-lived token with `POST /auth/login_flow` and
+   `POST /auth/token`;
+2. installs the blueprint with the WebSocket `blueprint/save` command;
+3. creates or updates an automation through
+   `POST /api/config/automation/config/<automation_id>`;
+4. discovers the panel's target/state/value text entities by suffix and
+   rejects ambiguous matches unless `--panel` is supplied.
+
+Re-running the command is safe. It updates only an automation with the same id,
+blueprint and alias, and stops with a conflict message when the id or alias
+belongs to another automation. `--dry-run` prints the resolved plan,
+`--update-blueprint` refreshes the installed blueprint, and `HA_TOKEN` can
+replace the username/password pair.
+
 No light or blueprint is required to preview the card. Open the E1003 device in
 Home Assistant and edit its `Main light state` and `Main light value` text
 entities directly. Leave `Main light target` empty for display-only use:

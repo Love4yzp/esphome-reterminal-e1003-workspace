@@ -54,7 +54,7 @@ e1003-base.yaml                 # 共享 packages 组装
 │   └── blueprints/automation/
 │       └── e1003_light_sync.yaml
 ├── docs/                       # 架构 / 配置 / 布局 / HA 集成 / 构建
-└── scripts/                    # build.py(Linux / Windows / macOS 同一个入口)
+└── scripts/                    # build.py / deploy_ha.py / make_release.py
 ```
 
 详细固件分层与 packages 说明见 [docs/architecture.md](docs/architecture.md)。

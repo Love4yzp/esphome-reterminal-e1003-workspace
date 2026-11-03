@@ -467,13 +467,19 @@ display:
 
         clear(e1003::LIGHT_SLIDER_CLEAR);
         const e1003::Rect track = e1003::LIGHT_SLIDER_TRACK;
-        it.filled_rectangle(track.x, track.y, track.w, track.h, G2);
-        const int filled = (track.w - 1) * pct / 100;
+        // DU only drives black/white transitions reliably. Keep the slider's
+        // final frame monochrome so reducing brightness clears the old filled
+        // segment instead of leaving a black-to-gray ghost.
+        it.filled_rectangle(track.x, track.y, track.w, track.h, WHITE);
+        it.rectangle(track.x, track.y, track.w, track.h, BLACK);
+        const int inner_width = track.w - 2;
+        const int filled = inner_width * pct / 100;
         if (has_display_data && filled > 0) {
-          it.filled_rectangle(track.x, track.y, filled + 1, track.h, BLACK);
+          it.filled_rectangle(
+              track.x + 1, track.y + 1, filled, track.h - 2, BLACK);
         }
 
-        const int thumb_x = track.x + filled;
+        const int thumb_x = track.x + (track.w - 1) * pct / 100;
         const int thumb_y = track.y + track.h / 2;
         const int thumb_radius = track.h;
         it.filled_circle(thumb_x, thumb_y, thumb_radius, WHITE);

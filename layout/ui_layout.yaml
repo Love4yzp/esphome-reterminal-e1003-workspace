@@ -304,6 +304,8 @@ cards:
 # -----------------------------------------------------------------------------
 refresh:
   boot_mode: GC16
+  # DU is fast but black/white only; dynamic controls must end each partial
+  # frame in monochrome even though the boot artwork can contain grayscale.
   partial_mode: DU
   full_update_every: 120     # periodic GC16 to clear ghosting buildup
   settle_delay: 250ms        # debounce window before a partial refresh fires

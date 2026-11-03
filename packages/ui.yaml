@@ -215,9 +215,25 @@ display:
         return value > 100 ? 100 : value;
       };
 
-      auto compact_network_name = [](const std::string &value) -> std::string {
-        if (value.size() <= 20) return value;
-        return value.substr(0, 10) + "..." + value.substr(value.size() - 6);
+      auto fit_network_text = [&](const std::string &value,
+                                  esphome::display::BaseFont *font,
+                                  int max_width) -> std::string {
+        std::string fitted = value;
+        int x1 = 0;
+        int y1 = 0;
+        int width = 0;
+        int height = 0;
+        it.get_text_bounds(0, 0, fitted.c_str(), font,
+                           esphome::display::TextAlign::TOP_LEFT,
+                           &x1, &y1, &width, &height);
+        while (width > max_width && fitted.size() > 4) {
+          fitted.pop_back();
+          const std::string candidate = fitted + "...";
+          it.get_text_bounds(0, 0, candidate.c_str(), font,
+                             esphome::display::TextAlign::TOP_LEFT,
+                             &x1, &y1, &width, &height);
+        }
+        return fitted == value ? fitted : fitted + "...";
       };
 
       auto draw_network = [&]() {
@@ -228,63 +244,75 @@ display:
         const bool api_connected = api::global_api_server != nullptr
             && api::global_api_server->is_connected();
 
-        std::string role;
-        std::string name;
-        std::string detail;
+        std::string ssid;
+        std::string address;
+        std::string ha_status;
 
         if (ap_active) {
-          role = "SETUP ACCESS POINT";
-          name = App.get_name().c_str();
-          detail = "Open 192.168.4.1";
+          ssid = App.get_name().c_str();
+          address = "IP 192.168.4.1";
+          ha_status = "HA OFFLINE";
         } else if (wifi_connected) {
-          role = api_connected ? "HA CONNECTED" : "HA WAITING";
-          name = id(connected_wifi_ssid).state;
-          if (name.empty()) name = "Connected network";
-          const std::string address = id(connected_wifi_ip).state;
-          detail = address.empty() ? "IP pending" : "IP " + address;
+          ssid = id(connected_wifi_ssid).state;
+          if (ssid.empty()) ssid = "CONNECTED WI-FI";
+          const std::string ip = id(connected_wifi_ip).state;
+          address = ip.empty() ? "IP PENDING" : "IP " + ip;
+          ha_status = api_connected ? "HA CONNECTED" : "HA WAITING";
         } else {
-          role = "CONNECTING";
-          name = "Finding Wi-Fi";
-          detail = "Setup AP will start";
+          ssid = "FINDING WI-FI";
+          address = "IP PENDING";
+          ha_status = "HA OFFLINE";
         }
 
-        name = compact_network_name(name);
+        clear(e1003::NETWORK_PANEL_CLEAR);
+        const e1003::Rect ssid_box = e1003::NETWORK_PANEL_TRACK;
+        const e1003::Rect ip_box = e1003::NETWORK_IP_CONTROL_TRACK;
+        const e1003::Rect ha_box = e1003::NETWORK_HA_CONTROL_TRACK;
+        const bool armed = id(wifi_reconfigure_armed) && !ap_active;
 
-        clear(e1003::NETWORK_ACTION_CLEAR);
-        if (ap_active) {
-          it.printf(e1003::NETWORK_ACTION_LABEL_ANCHOR.x,
-                    e1003::NETWORK_ACTION_LABEL_ANCHOR.y,
-                    id(font_small), BLACK,
-                    e1003::NETWORK_ACTION_LABEL_ALIGN, "%s", "SETUP WI-FI");
+        if (armed) {
+          it.filled_rectangle(ssid_box.x, ssid_box.y,
+                              ssid_box.w, ssid_box.h, BLACK);
+          it.printf(e1003::NETWORK_SSID_ANCHOR.x,
+                    e1003::NETWORK_SSID_ANCHOR.y - 19,
+                    id(font_small), WHITE,
+                    e1003::NETWORK_SSID_ALIGN, "%s", "CHANGE WI-FI?");
+          it.printf(e1003::NETWORK_SSID_ANCHOR.x,
+                    e1003::NETWORK_SSID_ANCHOR.y + 18,
+                    id(font_tiny), WHITE,
+                    e1003::NETWORK_SSID_ALIGN, "%s", "TAP AGAIN TO CONFIRM");
         } else {
-          const e1003::Rect action = e1003::NETWORK_ACTION_TRACK;
-          const bool armed = id(wifi_reconfigure_armed);
-          if (armed) {
-            it.filled_rectangle(action.x, action.y, action.w, action.h, BLACK);
-          } else {
-            it.rectangle(action.x, action.y, action.w, action.h, BLACK);
+          it.rectangle(ssid_box.x, ssid_box.y,
+                       ssid_box.w, ssid_box.h, BLACK);
+
+          const int signal_x = e1003::NETWORK_SSID_ANCHOR.x - 18;
+          const int signal_bottom = e1003::NETWORK_SSID_ANCHOR.y - 35;
+          for (int index = 0; index < 4; index++) {
+            const int height = 7 + index * 6;
+            it.filled_rectangle(signal_x + index * 10,
+                                signal_bottom - height,
+                                6, height, BLACK);
           }
-          it.printf(e1003::NETWORK_ACTION_LABEL_ANCHOR.x,
-                    e1003::NETWORK_ACTION_LABEL_ANCHOR.y,
-                    id(font_small), armed ? WHITE : BLACK,
-                    e1003::NETWORK_ACTION_LABEL_ALIGN, "%s",
-                    armed ? "CONFIRM CHANGE" : "CHANGE WI-FI");
+
+          ssid = fit_network_text(ssid, id(font_small), ssid_box.w - 24);
+          it.printf(e1003::NETWORK_SSID_ANCHOR.x,
+                    e1003::NETWORK_SSID_ANCHOR.y,
+                    id(font_small), BLACK,
+                    e1003::NETWORK_SSID_ALIGN, "%s", ssid.c_str());
         }
 
-        clear(e1003::NETWORK_ROLE_CLEAR);
-        it.printf(e1003::NETWORK_ROLE_ANCHOR.x, e1003::NETWORK_ROLE_ANCHOR.y,
-                  id(font_tiny), BLACK,
-                  e1003::NETWORK_ROLE_ALIGN, "%s", role.c_str());
-
-        clear(e1003::NETWORK_NAME_CLEAR);
-        it.printf(e1003::NETWORK_NAME_ANCHOR.x, e1003::NETWORK_NAME_ANCHOR.y,
+        it.rectangle(ip_box.x, ip_box.y, ip_box.w, ip_box.h, BLACK);
+        address = fit_network_text(address, id(font_small), ip_box.w - 24);
+        it.printf(e1003::NETWORK_IP_ANCHOR.x,
+                  e1003::NETWORK_IP_ANCHOR.y,
                   id(font_small), BLACK,
-                  e1003::NETWORK_NAME_ALIGN, "%s", name.c_str());
+                  e1003::NETWORK_IP_ALIGN, "%s", address.c_str());
 
-        clear(e1003::NETWORK_DETAIL_CLEAR);
-        it.printf(e1003::NETWORK_DETAIL_ANCHOR.x, e1003::NETWORK_DETAIL_ANCHOR.y,
-                  id(font_tiny), BLACK,
-                  e1003::NETWORK_DETAIL_ALIGN, "%s", detail.c_str());
+        it.rectangle(ha_box.x, ha_box.y, ha_box.w, ha_box.h, BLACK);
+        it.printf(e1003::NETWORK_HA_ANCHOR.x,
+                  e1003::NETWORK_HA_ANCHOR.y,
+                  id(font_small), BLACK,
+                  e1003::NETWORK_HA_ALIGN, "%s", ha_status.c_str());
 
         id(ui_network_signature) =
             std::string(ap_active ? "ap|" : "sta|")

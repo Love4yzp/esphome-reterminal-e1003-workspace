@@ -11,7 +11,8 @@ esphome:
   # Public devices need unique hostnames and setup AP names.
   name_add_mac_suffix: true
   project:
-    name: spencer.e1003-dashboard
+    # Home Assistant uses the namespace before the dot as the manufacturer.
+    name: "Seeed Studio.e1003-dashboard"
     version: "1.0"
 
 api:

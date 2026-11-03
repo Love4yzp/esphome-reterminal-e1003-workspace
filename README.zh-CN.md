@@ -105,6 +105,8 @@ data:
 
 然后在 Home Assistant 里添加设备，并
 [从 HA 页面一键导入灯光同步蓝图](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml)，
+再到 ESPHome 集成中点击该 E1003 旁的“配置”，启用“允许设备执行 Home Assistant
+操作”。未启用时，HA 会拒绝面板发出的灯光控制请求。
 选择面板的 target/state/value 实体和要控制的灯。没有真实灯时，直接编辑面板的
 state/value 文本实体即可预览卡片，不需要安装 package 或创建虚拟灯。其他可运行时修改的内容见
 **[docs/configuration.md](docs/configuration.md)**。

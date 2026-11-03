@@ -77,8 +77,9 @@ blueprint to keep target, state and value synchronized in the public firmware.
 
 The display does not require a target. For a display-only preview, leave
 `main_light_target` empty and edit `main_light_state` and
-`main_light_value` from the Home Assistant device page. Panel touches still
-beep but direct mode sends no action until a target is configured.
+`main_light_value` from the Home Assistant device page. ON/OFF, presets and the
+slider also update the card locally and trigger one partial refresh. They still
+send no Home Assistant light action until a target is configured.
 
 ## Direct mode
 
@@ -89,6 +90,9 @@ With `zone_script_hook` empty:
   `brightness_pct`;
 - the brightness slider maps a tap or drag to `0`–`100`, then sends one action
   when the finger is released. Zero turns the light off.
+
+Each control first updates the card optimistically. The imported blueprint then
+mirrors the real light state back to the same state/value entities.
 
 Direct mode is intentionally light-specific. For a switch, fan, scene,
 conditions or per-zone custom logic, use hook mode.

@@ -7,9 +7,8 @@
 3. Open `192.168.4.1` and save the destination Wi-Fi credentials.
 4. Add the discovered ESPHome device in Home Assistant. The first connection
    provisions a unique API encryption key.
-
-Enable **Allow the device to perform Home Assistant actions**
-in the ESPHome integration options so touches can control the configured target.
+5. Open the ESPHome integration, select **Configure** beside the E1003, enable
+   **Allow the device to perform Home Assistant actions**, and submit.
 
 ## Panel entities
 
@@ -75,15 +74,16 @@ replace the username/password pair.
 No light or blueprint is required to preview the card. Open the E1003 device in
 Home Assistant and edit its `Main light state` and `Main light value` text
 entities directly. Leave `Main light target` empty for display-only use:
-touches still beep, but no light action is sent. Any HA automation can write the
-same entities with `text.set_value`.
+touches update the local card and beep, but no light action is sent. Any HA
+automation can write the same entities with `text.set_value`.
 
 ## Direct and hook routing
 
 Direct mode is active when `zone_script_hook` is empty. ON and OFF call
 `light.turn_on` and `light.turn_off`; percentage zones use `light.turn_on`.
 The brightness slider sends one exact `0`–`100` value on release, with zero
-treated as off.
+treated as off. Light controls update the card immediately; the blueprint
+subsequently writes back the real light state.
 
 For custom behavior, set the hook to an HA action such as
 `script.e1003_zone`. The panel passes `{zone, control, data_name, data_value}`

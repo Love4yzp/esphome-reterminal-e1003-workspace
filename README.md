@@ -127,6 +127,8 @@ Pages — plug in USB-C and flash from the page. See
 
 Then add the device in Home Assistant and
 [import the light-sync blueprint from the Home Assistant UI](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml).
+In the ESPHome integration, select **Configure** beside the E1003 and enable
+**Allow the device to perform Home Assistant actions**.
 The blueprint asks for the panel's target/state/value text entities and the
 light to control. Without a light, edit the panel's state/value text entities
 directly to preview the card; no package or virtual entity is required.

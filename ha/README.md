@@ -4,6 +4,10 @@ The firmware does not require any file from this directory. Home Assistant
 users can complete the normal setup from the web interface without opening the
 Container filesystem or editing `configuration.yaml`.
 
+After adding the ESPHome device, open its **Configure** dialog in the ESPHome
+integration and enable **Allow the device to perform Home Assistant actions**.
+Home Assistant blocks panel light commands until this permission is enabled.
+
 ## Import the blueprint from the Home Assistant UI
 
 [Import the E1003 light blueprint into Home Assistant](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml)
@@ -79,5 +83,5 @@ automation:
 | `main_light_value` | `0`–`100`, or empty | displayed brightness |
 
 For a display-only preview, leave the target empty and edit state/value from
-the device page. Touches still beep, but no Home Assistant light action is sent
-until a target or custom hook is configured.
+the device page. Panel controls update the card locally and still beep, but no
+Home Assistant light action is sent until a target or custom hook is configured.

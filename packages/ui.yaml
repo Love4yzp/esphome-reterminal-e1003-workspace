@@ -121,6 +121,36 @@ script:
       - delay: ${beep_duration}
       - light.turn_off: ui_buzzer
 
+  - id: ui_beep_long
+    mode: restart
+    then:
+      - light.turn_on:
+          id: ui_buzzer
+          brightness: ${beep_brightness}
+      - delay: 300ms
+      - light.turn_off: ui_buzzer
+
+  - id: ui_beep_warning
+    mode: restart
+    then:
+      - light.turn_on:
+          id: ui_buzzer
+          brightness: ${beep_brightness}
+      - delay: ${beep_duration}
+      - light.turn_off: ui_buzzer
+      - delay: 100ms
+      - light.turn_on:
+          id: ui_buzzer
+          brightness: ${beep_brightness}
+      - delay: ${beep_duration}
+      - light.turn_off: ui_buzzer
+      - delay: 100ms
+      - light.turn_on:
+          id: ui_buzzer
+          brightness: ${beep_brightness}
+      - delay: ${beep_duration}
+      - light.turn_off: ui_buzzer
+
   - id: ui_repaint
     mode: restart
     then:

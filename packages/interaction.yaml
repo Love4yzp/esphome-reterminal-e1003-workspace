@@ -2,6 +2,21 @@
 # INTERACTION -- runtime configuration, touch zones and Home Assistant actions
 # =============================================================================
 
+esphome:
+  includes:
+    - src/e1003_system.h
+
+globals:
+  - id: green_button_hold_triggered
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: wifi_reconfigure_triggered
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
 text:
   - platform: template
     id: cfg_script_hook
@@ -63,6 +78,86 @@ text:
             id(ui_light_dirty) = true;
         - script.execute: ui_refresh
 
+binary_sensor:
+  - platform: gpio
+    id: button_green
+    internal: true
+    pin:
+      number: ${pin_button_green}
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+      # GPIO3 is a strapping pin, but it is the board's dedicated green key.
+      ignore_strapping_warning: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      then:
+        - lambda: |-
+            id(green_button_hold_triggered) = false;
+        - script.execute: green_button_hold
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                return !id(green_button_hold_triggered);
+            then:
+              - script.stop: green_button_hold
+              - script.execute: ui_beep
+              - script.execute: ui_repaint
+
+  - platform: gpio
+    id: button_white_left
+    internal: true
+    pin:
+      number: ${pin_button_white_left}
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      then:
+        - lambda: |-
+            id(wifi_reconfigure_triggered) = false;
+        - script.execute: wifi_reconfigure_hold
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                return !id(wifi_reconfigure_triggered);
+            then:
+              - script.stop: wifi_reconfigure_hold
+
+  - platform: gpio
+    id: button_white_right
+    internal: true
+    pin:
+      number: ${pin_button_white_right}
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    on_press:
+      then:
+        - lambda: |-
+            id(wifi_reconfigure_triggered) = false;
+        - script.execute: wifi_reconfigure_hold
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                return !id(wifi_reconfigure_triggered);
+            then:
+              - script.stop: wifi_reconfigure_hold
+
 touchscreen:
   - platform: gt911
     id: e1003_touch
@@ -102,6 +197,52 @@ touchscreen:
           }
 
 script:
+  - id: green_button_hold
+    mode: restart
+    then:
+      - delay: 3s
+      - if:
+          condition:
+            binary_sensor.is_on: button_green
+          then:
+            - lambda: |-
+                id(green_button_hold_triggered) = true;
+            - script.execute: ui_beep_long
+            - script.wait: ui_beep_long
+            - lambda: |-
+                App.safe_reboot();
+
+  - id: wifi_reconfigure_hold
+    mode: restart
+    then:
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: button_white_left
+              - binary_sensor.is_on: button_white_right
+          then:
+            - delay: 5s
+            - if:
+                condition:
+                  and:
+                    - binary_sensor.is_on: button_white_left
+                    - binary_sensor.is_on: button_white_right
+                then:
+                  - lambda: |-
+                      id(wifi_reconfigure_triggered) = true;
+                  - script.execute: ui_beep_warning
+                  - script.wait: ui_beep_warning
+                  - if:
+                      condition:
+                        lambda: |-
+                          return e1003::clear_wifi_credentials();
+                      then:
+                        - lambda: |-
+                            App.safe_reboot();
+                      else:
+                        - lambda: |-
+                            id(wifi_reconfigure_triggered) = false;
+
   - id: zone_dispatch
     mode: queued
     max_runs: 4

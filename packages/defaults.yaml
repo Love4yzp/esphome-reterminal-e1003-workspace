@@ -13,6 +13,9 @@ substitutions:
   pin_buzzer: GPIO45
   pin_touch_int: GPIO2
   pin_touch_rst: GPIO48
+  pin_button_green: GPIO3
+  pin_button_white_left: GPIO4
+  pin_button_white_right: GPIO5
 
   log_level: INFO
   beep_brightness: "50%"

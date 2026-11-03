@@ -50,8 +50,7 @@ e1003-base.yaml                 # 共享 packages 组装
 ├── assets/                     # 设计稿 PNG、生成的位图头文件、内置字体(assets/fonts/)
 ├── tools/                      # png_to_h.py、layout_to_h.py
 ├── ha/
-│   ├── README.md               # Home Assistant 简明接入说明
-│   ├── e1003_demo.yaml         # 可选虚拟调光灯
+│   ├── README.md               # HA 页面化接入说明
 │   └── blueprints/automation/
 │       └── e1003_light_sync.yaml
 ├── docs/                       # 架构 / 配置 / 布局 / HA 集成 / 构建
@@ -103,9 +102,10 @@ data:
 ——插上 USB-C 就能在网页里直接烧录。见
 [公共首次安装固件](docs/build-and-flash.md#public-first-install-image)。
 
-然后在 Home Assistant 里添加设备,导入
-`ha/blueprints/automation/e1003_light_sync.yaml`,选择面板的 target/state/value
-实体和要控制的灯。全程没有重新编译。其他可运行时修改的内容见
+然后在 Home Assistant 里添加设备，并
+[从 HA 页面一键导入灯光同步蓝图](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml)，
+选择面板的 target/state/value 实体和要控制的灯。没有真实灯时，直接编辑面板的
+state/value 文本实体即可预览卡片，不需要安装 package 或创建虚拟灯。其他可运行时修改的内容见
 **[docs/configuration.md](docs/configuration.md)**。
 
 ## 哪些能改、哪些要重编译

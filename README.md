@@ -63,10 +63,9 @@ panel is a service call — no rebuild, no OTA.
 │   ├── build.py                # cross-platform build, flash, and log driver
 │   └── make_release.py         # assemble release and browser-install artifacts
 ├── ha/
-│   ├── README.md               # plain-language Home Assistant setup
-│   ├── blueprints/automation/
-│   │   └── e1003_light_sync.yaml
-│   └── e1003_demo.yaml         # optional virtual dimmable light
+│   ├── README.md               # UI-first Home Assistant setup
+│   └── blueprints/automation/
+│       └── e1003_light_sync.yaml
 ├── web/
 │   └── install.html            # browser installer template
 ├── docs/                       # architecture, configuration, layout, HA, and build guides
@@ -124,9 +123,11 @@ Every tagged release ships ready-made images and a browser installer on GitHub
 Pages — plug in USB-C and flash from the page. See
 [public first-install image](docs/build-and-flash.md#public-first-install-image).
 
-Then add the device in Home Assistant and import
-`ha/blueprints/automation/e1003_light_sync.yaml`. The blueprint asks for the
-panel's target/state/value text entities and the light to control.
+Then add the device in Home Assistant and
+[import the light-sync blueprint from the Home Assistant UI](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml).
+The blueprint asks for the panel's target/state/value text entities and the
+light to control. Without a light, edit the panel's state/value text entities
+directly to preview the card; no package or virtual entity is required.
 
 ## What can be changed without reflashing
 

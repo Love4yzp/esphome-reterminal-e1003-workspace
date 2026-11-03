@@ -66,7 +66,7 @@ write.
 |---|---|---|
 | `zone_script_hook` | empty: use direct light mode | optional HA action called for light zones |
 | `reachy_script_hook` | empty: beep only | HA action called by the six Reachy scene zones |
-| `main_light_target` | empty until configured in HA | entity controlled by the light zones |
+| `main_light_target` | empty: touches send no direct light action | entity controlled by the light zones |
 | `main_light_state` | empty: no selected ON/OFF segment | display state pushed by HA |
 | `main_light_value` | empty: `0` | display brightness, `0`–`100` |
 
@@ -74,6 +74,11 @@ The target and its displayed state are deliberately separate. ESPHome can call
 an entity id stored in text at runtime, but a `platform: homeassistant` state
 subscription requires a compile-time literal entity id. Use the supplied
 blueprint to keep target, state and value synchronized in the public firmware.
+
+The display does not require a target. For a display-only preview, leave
+`main_light_target` empty and edit `main_light_state` and
+`main_light_value` from the Home Assistant device page. Panel touches still
+beep but direct mode sends no action until a target is configured.
 
 ## Direct mode
 
@@ -117,7 +122,8 @@ The display is not refreshed for a Reachy touch.
 
 ## Recommended Home Assistant setup
 
-Import `ha/blueprints/automation/e1003_light_sync.yaml`, then select:
+[Import the light-sync blueprint from the Home Assistant UI](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml),
+then select:
 
 1. the light to control;
 2. the panel's target text entity;

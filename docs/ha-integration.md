@@ -28,9 +28,9 @@ Home Assistant creates names based on the device name. Look them up in
 
 ## Recommended: import the light-sync blueprint
 
-Import `ha/blueprints/automation/e1003_light_sync.yaml` and create an
-automation. Select one HA light and the panel's target/state/value text
-entities. The blueprint:
+[Import the blueprint from the Home Assistant UI](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FLove4yzp%2Fesphome-reterminal-e1003-workspace%2Fblob%2Fmain%2Fha%2Fblueprints%2Fautomation%2Fe1003_light_sync.yaml),
+then create an automation. Select one HA light and the panel's
+target/state/value text entities. The blueprint:
 
 - writes the selected light's entity id into the runtime target;
 - mirrors its state;
@@ -40,11 +40,11 @@ entities. The blueprint:
 This is the normal setup. The firmware remains generic and no
 user Wi-Fi, API key or entity id is published in the release image.
 
-If no physical light is available, copy `ha/e1003_demo.yaml` into Home
-Assistant's `config/packages/` directory. It creates
-`light.e1003_demo_light`, which behaves like a dimmable light in the Home
-Assistant UI. Select it in the same blueprint to test panel state and controls.
-See `ha/README.md` for the short setup sequence.
+No light or blueprint is required to preview the card. Open the E1003 device in
+Home Assistant and edit its `Main light state` and `Main light value` text
+entities directly. Leave `Main light target` empty for display-only use:
+touches still beep, but no light action is sent. Any HA automation can write the
+same entities with `text.set_value`.
 
 ## Direct and hook routing
 
@@ -122,7 +122,7 @@ setup path.
 
 | Symptom | Check |
 |---|---|
-| no ON/OFF segment is selected | `main_light_target` or mirrored state is empty; create the blueprint automation or set it manually |
+| no ON/OFF segment is selected | `main_light_state` is empty or not `on`/`off`; create the blueprint automation or edit it manually |
 | touch beeps but no HA action occurs | target is empty, or the configured hook script failed |
 | action works but card is stale | state/value text entities are not being mirrored; check the blueprint automation trace |
 | Home Assistant does not discover the panel | read the IP from the network card and add the ESPHome integration manually |

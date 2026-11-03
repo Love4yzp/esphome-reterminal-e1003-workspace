@@ -230,6 +230,15 @@ display:
         return !id(cfg_target_main_light).state.empty();
       };
 
+      auto light_has_state = [&]() -> bool {
+        const std::string state = id(cfg_state_main_light).state;
+        return state == "on" || state == "off";
+      };
+
+      auto light_has_value = [&]() -> bool {
+        return !id(cfg_value_main_light).state.empty();
+      };
+
       auto light_on = [&]() -> bool {
         return id(cfg_state_main_light).state == "on";
       };
@@ -393,6 +402,9 @@ display:
 
       auto draw_light = [&]() {
         const bool configured = light_configured();
+        const bool has_state = light_has_state();
+        const bool has_display_data =
+            configured || has_state || light_has_value();
         const bool on = light_on();
         const int pct = light_pct();
 
@@ -401,21 +413,21 @@ display:
         const int state_half = state.w / 2;
         it.rectangle(state.x, state.y, state.w, state.h, BLACK);
         it.vertical_line(state.x + state_half, state.y, state.h, BLACK);
-        if (configured) {
+        if (has_state) {
           const int active_x = on ? state.x + state_half + 1 : state.x + 1;
           const int active_w = on ? state.w - state_half - 2 : state_half - 1;
           it.filled_rectangle(active_x, state.y + 1, active_w, state.h - 2, BLACK);
         }
 
         it.printf(e1003::LIGHT_OFF_LABEL_ANCHOR.x, e1003::LIGHT_OFF_LABEL_ANCHOR.y,
-                  id(font_medium), configured && !on ? WHITE : BLACK,
+                  id(font_medium), has_state && !on ? WHITE : BLACK,
                   e1003::LIGHT_OFF_LABEL_ALIGN, "%s", "OFF");
         it.printf(e1003::LIGHT_ON_LABEL_ANCHOR.x, e1003::LIGHT_ON_LABEL_ANCHOR.y,
-                  id(font_medium), configured && on ? WHITE : BLACK,
+                  id(font_medium), has_state && on ? WHITE : BLACK,
                   e1003::LIGHT_ON_LABEL_ALIGN, "%s", "ON");
 
         clear(e1003::LIGHT_CURRENT_CLEAR);
-        if (configured) {
+        if (has_display_data) {
           it.printf(e1003::LIGHT_CURRENT_ANCHOR.x, e1003::LIGHT_CURRENT_ANCHOR.y,
                     id(font_tiny), BLACK,
                     e1003::LIGHT_CURRENT_ALIGN, "Current %d%%", pct);
@@ -432,7 +444,7 @@ display:
                                int value,
                                const char *label) {
           clear(clear_rect);
-          const bool active = configured && on && pct == value;
+          const bool active = has_state && on && pct == value;
           if (active) {
             it.filled_rectangle(button.x, button.y, button.w, button.h, BLACK);
           } else {
@@ -463,7 +475,7 @@ display:
         const e1003::Rect track = e1003::LIGHT_BAR_TRACK;
         it.filled_rectangle(track.x, track.y, track.w, track.h, G2);
         const int filled = track.w * pct / 100;
-        if (configured && filled > 0) {
+        if (has_display_data && filled > 0) {
           it.filled_rectangle(track.x, track.y, filled, track.h, BLACK);
         }
       };

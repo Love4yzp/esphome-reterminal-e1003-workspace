@@ -1,14 +1,13 @@
 blueprint:
   name: "E1003: connect one light to the panel"
   description: >-
-    Select a real or demo Home Assistant light. The automation tells the panel
-    which entity to control and mirrors its on/off state and brightness to the
-    e-paper card.
+    Select a Home Assistant light. The automation tells the panel which entity
+    to control and mirrors its on/off state and brightness to the e-paper card.
   domain: automation
   input:
     light_entity:
       name: Light to control
-      description: Select a physical light or light.e1003_demo_light.
+      description: Select the Home Assistant light controlled by the panel.
       selector:
         entity:
           domain: light

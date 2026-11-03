@@ -21,8 +21,10 @@ and enter the destination Wi-Fi credentials. The credentials are saved in NVS
 and reused after reboot.
 
 Home Assistant provisions a unique API encryption key when the device is added
-for the first time. Import the supplied light-sync blueprint afterward to
-select the user's light and keep the card synchronized.
+for the first time. Import the supplied light-sync blueprint from the Home
+Assistant UI afterward to select the user's light and keep the card
+synchronized. A display-only preview can instead edit the panel's state/value
+text entities directly.
 
 ESPHome's captive portal automatically includes a web updater. Its HTTP
 listener is available during setup. The release also carries

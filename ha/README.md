@@ -26,8 +26,19 @@ Create an automation from the imported blueprint and select:
 3. the panel text entity ending in `Main light state`;
 4. the panel text entity ending in `Main light value`.
 
-The panel controls the selected light, and changes made in Home Assistant are
-mirrored to the e-paper card.
+The light is selected in this Home Assistant automation. The ESPHome device
+page exposes the panel entities but does not have a target-light selector. The
+panel controls the selected light, and changes made in Home Assistant are
+mirrored to the e-paper card. Setting the panel's `Main light state` (`on` /
+`off`) or `Main light value` (0-100) in Home Assistant also drives the light;
+the automation's own mirror writes are ignored, so the two directions do not
+loop.
+
+If the panel is the only controller and state mirroring is not needed, skip the
+automation: set the panel's `Light target` text entity to the light id and the
+device calls `light.turn_on` / `light.turn_off` itself. That path needs
+**Allow the device to perform Home Assistant actions** on the ESPHome
+integration; see [direct light mode](../docs/configuration.md#direct-light-mode).
 
 ## Deploy from a terminal (API)
 

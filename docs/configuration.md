@@ -73,6 +73,7 @@ write.
 | `main_light_value` | text, empty | display brightness, `0`–`100` |
 | `zone_script_hook` | text, empty | optional advanced HA action replacing command publishing |
 | `reachy_script_hook` | text, empty | optional HA action called by the six Reachy scene zones |
+| `light_target` | text, empty | optional HA light entity controlled without an automation |
 
 The command and displayed state are deliberately separate. The firmware reports
 user intent through `main_light_command`; the supplied blueprint selects the
@@ -103,6 +104,34 @@ again.
 Each control first updates the card optimistically. The imported blueprint
 performs the light action, then mirrors the real state back to the same
 state/value entities.
+
+## Direct light mode
+
+Set `Light target` on the ESPHome device page to a Home Assistant light entity
+id, for example `light.office_ceiling`:
+
+```yaml
+action: text.set_value
+target:
+  entity_id: text.<panel>_light_target
+data:
+  value: light.office_ceiling
+```
+
+Every light touch then calls `light.turn_on` / `light.turn_off` on that entity
+directly, with no Home Assistant automation. Empty (the default) keeps command
+mode, so leaving this field alone changes nothing.
+
+This mode is one-way: the card shows the touch intent, not the light's real
+state. Changes made elsewhere (a wall switch, another automation) are not
+mirrored back until something writes `main_light_state` / `main_light_value`.
+Use it for a panel that is the only controller of one light; keep the blueprint
+when the light is also driven from other places.
+
+The field is a plain text input, not an entity picker: ESPHome cannot enumerate
+Home Assistant entities at runtime. Typing the id is the whole configuration.
+Like hook mode, direct light mode asks the device to call an HA service and
+therefore requires **Allow the device to perform Home Assistant actions**.
 
 ## Hook mode
 

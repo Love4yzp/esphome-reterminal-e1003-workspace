@@ -3,8 +3,9 @@ blueprint:
   description: >-
     Select a Home Assistant light. Panel touches publish commands through an
     ESPHome sensor, this automation performs the light actions inside Home
-    Assistant, and the real state is mirrored back to the e-paper card. No
-    ESPHome action permission is required.
+    Assistant, and the real state is mirrored back to the e-paper card.
+    Setting the panel's Main light state or value in Home Assistant also
+    drives the light. No ESPHome action permission is required.
   domain: automation
   input:
     light_entity:
@@ -42,12 +43,28 @@ triggers:
   - trigger: state
     entity_id: !input panel_command
     id: panel_command
+  # Edits of the mirrored entities by a person (UI, API, voice) drive the
+  # light too. This automation's own mirror writes carry no user id, so they
+  # do not loop back.
+  - trigger: state
+    entity_id: !input panel_state
+    id: panel_state_edit
+  - trigger: state
+    entity_id: !input panel_value
+    id: panel_value_edit
   - trigger: homeassistant
     event: start
     id: homeassistant_start
 
 variables:
   light_entity: !input light_entity
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.id not in ['panel_state_edit', 'panel_value_edit']
+         or (trigger.to_state is not none
+             and trigger.to_state.context.user_id is not none) }}
 
 actions:
   - choose:
@@ -116,6 +133,65 @@ actions:
             data:
               value: "{{ states(light_entity) }}"
 
+          - action: text.set_value
+            target:
+              entity_id: !input panel_value
+            data:
+              value: >-
+                {{ ((state_attr(light_entity, 'brightness') or 0) / 2.55)
+                   | round(0) | int }}
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'panel_state_edit' }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ trigger.to_state.state == 'off' }}"
+                sequence:
+                  - action: light.turn_off
+                    target:
+                      entity_id: !input light_entity
+              - conditions:
+                  - condition: template
+                    value_template: "{{ trigger.to_state.state == 'on' }}"
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input light_entity
+          # Invalid text or an unchanged light still needs the card restored.
+          - delay: 1
+          - action: text.set_value
+            target:
+              entity_id: !input panel_state
+            data:
+              value: "{{ states(light_entity) }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'panel_value_edit' }}"
+        sequence:
+          - variables:
+              requested: "{{ trigger.to_state.state | int(-1) }}"
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ requested == 0 }}"
+                sequence:
+                  - action: light.turn_off
+                    target:
+                      entity_id: !input light_entity
+              - conditions:
+                  - condition: template
+                    value_template: "{{ requested > 0 }}"
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input light_entity
+                    data:
+                      brightness_pct: "{{ [requested, 100] | min }}"
+          - delay: 1
           - action: text.set_value
             target:
               entity_id: !input panel_value

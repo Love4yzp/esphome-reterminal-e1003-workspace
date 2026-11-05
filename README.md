@@ -109,7 +109,7 @@ After flashing, join the open Wi-Fi network whose name starts with
 `reterminal-e1003-`, then open `192.168.4.1` to enter the destination Wi-Fi
 credentials. Add the device in Home Assistant
 (**Settings → Devices & Services → ESPHome**), import the supplied blueprint,
-and select:
+create its automation, and select:
 
 1. the light;
 2. the panel's `Main light command` sensor;
@@ -118,8 +118,10 @@ and select:
 
 The blueprint performs light actions inside Home Assistant, so a replicated
 device does not need **Allow the device to perform Home Assistant actions**.
-See [docs/configuration.md](docs/configuration.md) for the complete runtime
-interface.
+To control a single light without an automation, set the device's
+`Light target` text entity instead; that path is one-way and needs the action
+permission. See [docs/configuration.md](docs/configuration.md) for the complete
+runtime interface.
 
 ## Ready-made firmware image
 

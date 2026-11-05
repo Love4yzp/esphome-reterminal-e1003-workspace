@@ -61,6 +61,17 @@ text:
     max_length: 63
     initial_value: ""
 
+  # Optional blueprint-free light control. Empty keeps the default command
+  # channel; set to a Home Assistant light entity to call it directly.
+  - platform: template
+    id: cfg_light_target
+    name: "${friendly_name} Light target"
+    mode: text
+    optimistic: true
+    restore_value: true
+    max_length: 63
+    initial_value: ""
+
   - platform: template
     id: cfg_state_main_light
     name: "${friendly_name} Main light state"
@@ -355,8 +366,13 @@ script:
                   action: !lambda |-
                     return data_value;
 
-      # The normal light path is permission-free: publish an entity state and
-      # let the HA-side blueprint perform the service call inside HA.
+      # Light dispatch, in priority order:
+      #   1. light_target set  -> direct service call, no automation needed;
+      #   2. zone_script_hook   -> one advanced HA action for every zone;
+      #   3. otherwise          -> publish a command for the HA blueprint.
+      # The default (3) stays permission-free and keeps entity ids out of the
+      # firmware; (1) and (2) need "Allow the device to perform Home Assistant
+      # actions" in the Home Assistant ESPHome integration.
       - if:
           condition:
             lambda: |-
@@ -368,29 +384,92 @@ script:
             - if:
                 condition:
                   lambda: |-
-                    return !id(cfg_script_hook).state.empty();
+                    return !id(cfg_light_target).state.empty();
                 then:
-                  - homeassistant.action:
-                      action: !lambda |-
-                        return id(cfg_script_hook).state;
-                      data_template:
-                        zone: !lambda |-
-                          return zone_id;
-                        control: !lambda |-
-                          return control;
-                        data_name: !lambda |-
-                          return data_name;
-                        data_value: !lambda |-
-                          return data_value;
+                  - if:
+                      condition:
+                        lambda: |-
+                          return op == (int) e1003::ZoneOp::TOGGLE;
+                      then:
+                        - homeassistant.action:
+                            action: light.toggle
+                            data_template:
+                              entity_id: !lambda |-
+                                return id(cfg_light_target).state;
+                      else:
+                        - if:
+                            condition:
+                              lambda: |-
+                                return data_name == "state"
+                                    && data_value == "off";
+                            then:
+                              - homeassistant.action:
+                                  action: light.turn_off
+                                  data_template:
+                                    entity_id: !lambda |-
+                                      return id(cfg_light_target).state;
+                            else:
+                              - if:
+                                  condition:
+                                    lambda: |-
+                                      return data_name == "state";
+                                  then:
+                                    - homeassistant.action:
+                                        action: light.turn_on
+                                        data_template:
+                                          entity_id: !lambda |-
+                                            return id(cfg_light_target).state;
+                                  else:
+                                    - if:
+                                        condition:
+                                          lambda: |-
+                                            int value = 0;
+                                            for (const char c : data_value) {
+                                              if (c < '0' || c > '9') break;
+                                              value = value * 10 + (c - '0');
+                                            }
+                                            return value > 0;
+                                        then:
+                                          - homeassistant.action:
+                                              action: light.turn_on
+                                              data_template:
+                                                entity_id: !lambda |-
+                                                  return id(cfg_light_target).state;
+                                                brightness_pct: !lambda |-
+                                                  return data_value;
+                                        else:
+                                          - homeassistant.action:
+                                              action: light.turn_off
+                                              data_template:
+                                                entity_id: !lambda |-
+                                                  return id(cfg_light_target).state;
                 else:
-                  - lambda: |-
-                      id(main_light_command_sequence)++;
-                      const std::string command =
-                          std::to_string(id(main_light_command_sequence))
-                          + "|" + data_name + "|" + data_value;
-                      ESP_LOGI("e1003", "publish main light command '%s'",
-                               command.c_str());
-                      id(main_light_command).publish_state(command);
+                  - if:
+                      condition:
+                        lambda: |-
+                          return !id(cfg_script_hook).state.empty();
+                      then:
+                        - homeassistant.action:
+                            action: !lambda |-
+                              return id(cfg_script_hook).state;
+                            data_template:
+                              zone: !lambda |-
+                                return zone_id;
+                              control: !lambda |-
+                                return control;
+                              data_name: !lambda |-
+                                return data_name;
+                              data_value: !lambda |-
+                                return data_value;
+                      else:
+                        - lambda: |-
+                            id(main_light_command_sequence)++;
+                            const std::string command =
+                                std::to_string(id(main_light_command_sequence))
+                                + "|" + data_name + "|" + data_value;
+                            ESP_LOGI("e1003", "publish main light command '%s'",
+                                     command.c_str());
+                            id(main_light_command).publish_state(command);
 
 api:
   actions:

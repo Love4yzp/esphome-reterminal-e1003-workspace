@@ -566,6 +566,8 @@ def main() -> int:
                         domain="automation",
                         path=blueprint_path,
                         yaml=blueprint_yaml,
+                        # Required by HA to replace an installed copy.
+                        allow_override=blueprint_path in blueprints,
                     )
                     print(f"  overrides_existing={result.get('overrides_existing')}")
 
